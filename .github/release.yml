@@ -1,0 +1,40 @@
+name: Release
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version, e.g. v0.1.0'
+        required: true
+permissions:
+  contents: read
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node scripts/test.mjs
+      - name: Build all platforms
+        env:
+          RELEASE_VERSION: ${{ inputs.version || github.ref_name }}
+        run: go run ./tools/release -version "$RELEASE_VERSION"
+      - name: Verify checksums
+        run: cd dist && sha256sum -c SHA256SUMS.txt
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ inputs.version || github.ref_name }}
+        run: >-
+          gh release create "$RELEASE_VERSION" dist/*
+          --target "$GITHUB_SHA"
+          --title "$RELEASE_VERSION"
+          --notes-file docs/RELEASE_NOTES.md
