@@ -1,0 +1,20 @@
+# Container configuration: paths refer to mounted container directories.
+# Public Internet use is not recommended; no public deployment security assessment.
+host: 0.0.0.0
+port: 8080
+docs_dir:
+  - /data/documents
+server_ips: []
+file_operations: true
+permissions:
+  default: rw
+  rules: []
+memory:
+  server_mb: 256
+  document_mb: 128
+log:
+  dir: /data/logs
+  max_size_mb: 10
+  max_backups: 5
+  max_age_days: 7
+  compress: true

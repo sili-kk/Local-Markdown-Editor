@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
+  <title>屿墨笺 · 岛屿与笔尖</title>
+  <defs>
+    <linearGradient id="ink" x1="6" y1="3" x2="43" y2="48" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#42735d"/>
+      <stop offset="1" stop-color="#193e35"/>
+    </linearGradient>
+  </defs>
+  <rect width="48" height="48" rx="14" fill="url(#ink)"/>
+  <path d="m24 8 12 20-6 6H18l-6-6L24 8Z" fill="#f5f3e7"/>
+  <path d="M24 9v13" stroke="#285141" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="24" cy="24" r="2.5" fill="#285141"/>
+  <path d="M11 38c4-3 8 3 13 0s9 3 13 0" stroke="#b3cbbc" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="36" cy="12" r="2.5" fill="#d8ba7b"/>
+</svg>

@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>屿墨笺 · 本地 Markdown</title>
+  <script src="/static/theme.js"></script>
+  <link rel="icon" type="image/svg+xml" sizes="any" href="/static/favicon.svg?v=yumojian">
+  <link rel="stylesheet" href="/static/vendor/toastui/toastui-editor.css">
+  <link rel="stylesheet" href="/static/vendor/toastui-table/toastui-editor-plugin-table-merged-cell.css">
+  <link rel="stylesheet" href="/static/styles.css">
+  <link rel="stylesheet" href="/static/themes.css">
+</head>
+<body>
+  <div class="app" id="app">
+    <button class="sidebar-scrim" id="sidebarScrim" aria-label="关闭文档侧边栏" tabindex="-1"></button>
+    <aside id="sidebar" aria-label="文档库">
+      <div class="brand"><img class="logo" src="/static/favicon.svg?v=yumojian" width="44" height="44" alt=""><div><strong>屿墨笺</strong><small>A SPACE TO WRITE</small></div></div>
+      <div class="section-label"><span>文档库</span><span id="fileCount">0</span></div>
+      <div class="search-wrap"><span data-icon="search"></span><input id="search" type="search" aria-label="搜索文档名称或内容" placeholder="搜索名称或内容…" aria-describedby="searchStatus"><span class="search-key" aria-hidden="true">⌘ K</span><div id="searchStatus" role="status" aria-live="polite" hidden></div></div>
+      <nav id="fileList" aria-label="文档列表"><div class="empty">正在加载…</div></nav>
+      <div class="directory" id="localPaths" hidden>
+        <div class="directory-title"><span data-icon="drive"></span>本地文档<span class="local-indicator">本机</span><button class="button" id="managePaths" type="button" title="管理文档目录路径" aria-haspopup="dialog" aria-controls="pathsDialog"><span data-icon="folder"></span><span class="button-label">路径</span></button></div>
+        <span id="directory">—</span>
+      </div>
+    </aside>
+    <div id="sidebarResize" role="separator" aria-label="调整文档库宽度" aria-orientation="vertical" aria-controls="sidebar" tabindex="0" title="拖动调整侧栏宽度，双击恢复默认；方向键也可调整"></div>
+    <div class="workspace">
+      <header>
+        <button class="icon-button" id="toggleSidebar" type="button" aria-label="收起或展开文档库" aria-controls="sidebar" aria-expanded="true" title="收起或展开文档库"><span data-icon="panel"></span></button>
+        <div class="breadcrumb">
+          <div class="eyebrow"><span data-icon="folder"></span><span id="currentFolder">文档库</span><span> / </span><span>文档</span></div>
+          <div class="document-history" id="documentHistory">
+            <button class="icon-button history-arrow history-previous" id="historyPrevious" type="button" aria-label="向左滚动历史文档" aria-controls="documentHistoryList" title="向左查看历史文档" hidden disabled><span data-icon="chevron"></span></button>
+            <nav id="documentHistoryList" aria-label="最近打开的文档"><span id="currentPath">选择一篇文档</span></nav>
+            <button class="icon-button history-arrow" id="historyNext" type="button" aria-label="向右滚动历史文档" aria-controls="documentHistoryList" title="向右查看历史文档" hidden disabled><span data-icon="chevron"></span></button>
+          </div>
+        </div>
+        <div class="header-tools">
+          <div class="actions">
+          <select class="theme-select" id="themeSelect" aria-label="切换主题" title="切换主题">
+            <option value="green">柔绿主题</option>
+            <option value="light">明亮主题</option>
+            <option value="dark">黑暗主题</option>
+          </select>
+          <div class="zoom-controls" role="group" aria-label="编辑页面缩放">
+            <button id="zoomOut" type="button" aria-label="缩小编辑页面" title="缩小编辑页面"><span data-icon="minus"></span></button>
+            <button id="zoomReset" type="button" aria-label="当前缩放 100%，点击恢复原始大小" title="恢复为 100%">100%</button>
+            <button id="zoomIn" type="button" aria-label="放大编辑页面" title="放大编辑页面"><span data-icon="plus"></span></button>
+          </div>
+          <button class="button permission-lock" id="createDocument" type="button" title="新建 Markdown 文件" aria-label="新建 Markdown 文件" aria-haspopup="dialog" aria-controls="createDocumentDialog" hidden disabled><span data-icon="plus"></span></button>
+          <button class="button" id="reload" title="从磁盘重新读取文档和文件列表" aria-label="重新加载本地文档"><span data-icon="refresh"></span><span class="button-label">重新加载</span></button>
+          <button class="button primary" id="save"><span data-icon="check"></span>保存<span class="save-shortcut" aria-hidden="true">⌘ S</span></button>
+          </div>
+          <div class="viewers" id="documentViewers" role="group" aria-label="全部文档在线查看者" data-expanded="false">
+            <span id="viewerCount" role="status" aria-live="polite">连接中…</span>
+            <div class="viewer-list" id="viewerList" aria-label="访问 IP 和正在查看的文档"></div>
+            <button id="toggleViewers" type="button" aria-controls="viewerList" aria-expanded="false" hidden>展开</button>
+          </div>
+        </div>
+      </header>
+      <div id="notice" role="alert"></div>
+      <main class="document" id="document">
+        <div id="empty" class="empty"><div class="empty-icon"><span data-icon="file"></span></div>选择一篇文档，写下新的想法。</div>
+        <button class="button" id="toggleOutline" type="button" aria-label="显示文档目录" aria-controls="documentOutline" aria-expanded="false" title="文档目录" hidden disabled><span data-icon="outline"></span>目录</button>
+        <div class="scroll-navigation" id="scrollNavigationTop" role="group" aria-label="文章滚动" hidden>
+          <button class="button scroll-button" data-scroll-to="top" type="button" aria-label="滚动到文章顶部" aria-controls="editor" title="到文章顶部" disabled><span data-icon="arrow-up"></span></button>
+          <button class="button scroll-button" data-scroll-to="bottom" type="button" aria-label="滚动到文章底部" aria-controls="editor" title="到文章底部" disabled><span data-icon="arrow-down"></span></button>
+        </div>
+        <div id="editor" hidden></div>
+        <section id="documentOutline" aria-labelledby="outlineTitle" hidden>
+          <div class="outline-heading"><strong id="outlineTitle">文档目录</strong><button class="icon-button" id="closeOutline" type="button" aria-label="关闭文档目录" title="关闭目录"><span data-icon="close"></span></button></div>
+          <nav id="outlineList" aria-label="文档章节"></nav>
+        </section>
+      </main>
+      <footer>
+        <span id="status" role="status" aria-live="polite">正在加载…</span>
+        <span class="hint">Ctrl / ⌘ + S 保存 · Ctrl / ⌘ + 点击打开链接</span>
+        <div class="footer-document">
+          <span id="charCount">0 字符 · UTF-8</span>
+          <div class="scroll-navigation" id="scrollNavigationBottom" role="group" aria-label="文章滚动">
+            <button class="button scroll-button" data-scroll-to="top" type="button" aria-label="滚动到文章顶部" aria-controls="editor" title="到文章顶部" disabled><span data-icon="arrow-up"></span></button>
+            <button class="button scroll-button" data-scroll-to="bottom" type="button" aria-label="滚动到文章底部" aria-controls="editor" title="到文章底部" disabled><span data-icon="arrow-down"></span></button>
+          </div>
+        </div>
+      </footer>
+    </div>
+  </div>
+  <div id="libraryContextMenu" class="library-context-menu" role="menu" aria-labelledby="libraryContextTitle" hidden>
+    <p id="libraryContextTitle" class="library-context-title"></p>
+    <button id="libraryContextCreate" type="button" role="menuitem"><span data-icon="plus"></span>新建 Markdown 文件</button>
+    <button id="libraryContextDelete" class="library-context-delete" type="button" role="menuitem"><span data-icon="minus"></span>删除文件…</button>
+    <div id="libraryContextSeparator" class="library-context-separator" role="separator"></div>
+    <button id="libraryContextLock" type="button" role="menuitem"><span data-icon="lock"></span>锁定为远端只读</button>
+    <button id="libraryContextUnlock" type="button" role="menuitem"><span data-icon="unlock"></span>解除此项只读</button>
+    <p class="library-context-hint">只读限制远端编辑，本机仍可管理。子项单独规则优先。</p>
+  </div>
+  <dialog id="createDocumentDialog" aria-labelledby="createDocumentTitle">
+    <form id="createDocumentForm">
+      <div class="paths-heading"><h2 id="createDocumentTitle">新建 Markdown 文件</h2><p>选择已配置范围内的目录，文件名可省略 .md，同名文件不会覆盖。</p></div>
+      <fieldset id="createFields"><label>所在目录<select id="createDirectory" required></select></label><label>文件名<input id="createName" maxlength="120" required autocomplete="off" placeholder="例如：新的文档.md"></label></fieldset>
+      <p id="createMessage" role="status" aria-live="polite"></p>
+      <div class="paths-actions"><button class="button" id="createCancel" type="button">取消</button><button class="button primary" id="createSave" type="submit">新建文件</button></div>
+    </form>
+  </dialog>
+  <dialog id="deletedDocumentDialog" aria-labelledby="deletedDocumentTitle" aria-describedby="deletedDocumentMessage" role="alertdialog">
+    <div class="delete-heading"><span class="delete-symbol" aria-hidden="true">−</span><div><p class="delete-eyebrow">文档状态更新</p><h2 id="deletedDocumentTitle">文件已删除</h2></div></div>
+    <p id="deletedDocumentMessage" class="delete-message"></p>
+    <div class="paths-actions"><button class="button primary" id="deletedDocumentClose" type="button" autofocus>知道了</button></div>
+  </dialog>
+  <dialog id="deleteConfirmDialog" aria-labelledby="deleteConfirmTitle" aria-describedby="deleteConfirmDescription" role="alertdialog">
+    <div class="delete-heading"><span class="delete-symbol" aria-hidden="true">−</span><div><p id="deleteConfirmStep" class="delete-eyebrow"></p><h2 id="deleteConfirmTitle">删除文档</h2></div></div>
+    <div class="delete-content"><p id="deleteConfirmPath" class="delete-file"></p><p id="deleteConfirmDescription" class="delete-description"></p><p class="delete-boundary">仅删除所选 Markdown 文件，不删除目录。</p></div>
+    <div class="paths-actions"><button class="button" id="deleteConfirmCancel" type="button" autofocus>保留文件</button><button class="button delete-confirm-button" id="deleteConfirmProceed" type="button">继续</button></div>
+  </dialog>
+  <dialog id="externalChangeDialog" aria-labelledby="externalChangeTitle" aria-describedby="externalChangeDescription">
+    <div class="paths-heading"><h2 id="externalChangeTitle">本地文件已更新</h2><p id="externalChangeDescription"></p></div>
+    <div class="paths-actions"><button class="button" id="externalChangeKeep" type="button">保留网页内容</button><button class="button primary" id="externalChangeReload" type="button" autofocus><span data-icon="refresh"></span>重新加载</button></div>
+  </dialog>
+  <dialog id="pathsDialog" aria-labelledby="pathsTitle" aria-describedby="pathsDescription">
+    <form id="pathsForm">
+      <div class="paths-heading"><h2 id="pathsTitle">文档路径与访问权限</h2><p id="pathsDescription">添加目录或单个 Markdown 文件，并设置远端访问权限。相对路径以配置文件所在目录为准；保存后一起生效。</p></div>
+      <div class="paths-body">
+      <fieldset id="pathsFields" disabled>
+        <h3 class="paths-section-title">文档路径</h3>
+        <p class="paths-section-description">每个路径需填写显示名称，文档库使用该名称；同名路径以目录 ID 区分。</p>
+        <div id="pathsList"></div>
+        <button class="button" id="pathsAdd" type="button"><span data-icon="plus"></span>添加路径</button>
+        <h3 class="paths-section-title">远端访问权限</h3>
+        <p class="paths-section-description">本机始终可管理全部配置内容。权限选项仅显示上方已保存的文档目录，不展开其内部子目录；授予的权限包含该目录下的全部子目录和文件。</p>
+        <section class="permission-saved" aria-labelledby="permissionSavedTitle">
+          <h4 id="permissionSavedTitle">已保存的权限列表</h4>
+          <div class="permission-table-wrap"><table class="permission-table"><thead><tr><th scope="col">目录 / 范围</th><th scope="col">远端权限</th><th scope="col">作用范围</th></tr></thead><tbody id="permissionSavedList"></tbody></table></div>
+          <p id="permissionSavedMessage" class="paths-section-description"></p>
+        </section>
+        <h4 class="permission-editor-title">设置目录权限</h4>
+        <label class="permission-default">全局默认<select id="permissionDefault"><option value="rw">读写（rw）</option><option value="r">只读（r）</option><option value="none">隐藏（无权限）</option></select></label>
+        <div class="permission-shortcuts" id="permissionShortcuts" role="group" aria-label="当前文档所属配置目录的快捷权限设置" hidden></div>
+        <div id="permissionRules"></div>
+        <button class="button" id="permissionAdd" type="button">添加目录权限</button>
+        <section id="permissionExtraSection" class="permission-extra-section" aria-labelledby="permissionExtraTitle" hidden><h4 id="permissionExtraTitle">已有子目录和文件独立权限</h4><p class="paths-section-description">这些已有规则会覆盖上级目录权限。移除并保存后，将继承上级目录或全局默认权限。</p><div id="permissionExtraRules"></div></section>
+        <p id="permissionsMessage" role="status" aria-live="polite"></p>
+      </fieldset>
+      <p id="pathsMessage" role="status" aria-live="polite"></p>
+      </div>
+      <div class="paths-actions"><button class="button" id="pathsReload" type="button">重新读取</button><button class="button" id="pathsCancel" type="button">取消</button><button class="button primary" id="pathsSave" type="submit" disabled>保存并加载</button></div>
+    </form>
+  </dialog>
+  <dialog id="mergeDialog" aria-labelledby="mergeTitle" aria-describedby="mergeDescription">
+    <div class="merge-heading"><h2 id="mergeTitle">合并文档修改</h2><p id="mergeDescription">本地文件也有更新。不同位置的修改会自动合并，请选择以下重叠内容的保留方式。</p></div>
+    <div id="mergeConflicts"></div>
+    <div class="merge-actions"><span id="mergeProgress" role="status"></span><button class="button" id="mergeCancel" type="button">取消，保留网页草稿</button><button class="button primary" id="mergeApply" type="button" disabled>合并并保存</button></div>
+  </dialog>
+  <script src="/static/vendor/toastui/toastui-editor-all.min.js"></script>
+  <script src="/static/vendor/toastui/zh-cn.js"></script>
+  <script src="/static/vendor/toastui-table/toastui-editor-plugin-table-merged-cell.js"></script>
+  <script src="/static/vendor/diff3/diff3.iife.js"></script>
+  <script src="/static/memory.js"></script>
+  <script src="/static/document-format.js"></script>
+  <script src="/static/markdown-shortcuts.js"></script>
+  <script src="/static/editor-end-click.js"></script>
+  <script src="/static/editor-line-numbers.js"></script>
+  <script src="/static/editor-search.js"></script>
+  <script src="/static/merge.js"></script>
+  <script src="/static/directories.js"></script>
+  <script src="/static/permissions.js"></script>
+  <script src="/static/file-operations.js"></script>
+  <script src="/static/library-context-menu.js"></script>
+  <script src="/static/resources.js"></script>
+  <script src="/static/external-changes.js"></script>
+  <script src="/static/outline.js"></script>
+  <script src="/static/browsing-state.js"></script>
+  <script src="/static/workspace-sort.js"></script>
+  <script src="/static/sidebar-resize.js"></script>
+  <script src="/static/viewers.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>

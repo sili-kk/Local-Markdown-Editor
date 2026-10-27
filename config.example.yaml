@@ -1,0 +1,30 @@
+# Copy this file to config.yaml and adjust the document directory.
+# Not recommended for public Internet use; no public deployment security assessment.
+# Use 127.0.0.1 for local-only access, or 0.0.0.0/0 for a trusted LAN.
+host: 127.0.0.1
+port: 8080
+
+docs_dir:
+  - ./documents
+
+# Optional exact management source addresses. Keep empty for automatic local detection.
+server_ips: []
+
+# Only local administrators can create or delete Markdown files.
+file_operations: true
+
+permissions:
+  # none hides documents from remote users; r is read-only; rw allows editing.
+  default: rw
+  rules: []
+
+memory:
+  server_mb: 256
+  document_mb: 128
+
+log:
+  dir: ./logs
+  max_size_mb: 10
+  max_backups: 5
+  max_age_days: 7
+  compress: true

@@ -1,0 +1,15 @@
+.git
+.gitignore
+logs
+documents
+runtime
+config.yaml
+.env
+bin
+dist
+test-results
+node_modules
+*.exe~
+*.exe
+*.test
+tmp

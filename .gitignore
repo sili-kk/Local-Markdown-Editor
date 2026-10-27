@@ -1,0 +1,14 @@
+config.yaml
+runtime/
+.env
+bin/
+dist/
+test-results/
+node_modules/
+documents/
+logs/
+md-editor
+*.exe
+*.exe~
+*.test
+tmp/

@@ -1,0 +1,176 @@
+/* 未选择新主题时使用 styles.css 中原有的柔绿配色。 */
+:root {
+  --control-text: #334b3c;
+  --control-active-text: #2e5c42;
+  --control-bg: #f6f9f3;
+  --control-border: #7c9275;
+  --control-hover: #e2ecda;
+  --control-hover-border: #56794c;
+  --control-disabled-text: #697763;
+  --control-disabled-bg: #edf2e9;
+}
+:root[data-theme=light] {
+  color-scheme: light;
+  --ink: #202938;
+  --text: #475569;
+  --muted: #64748b;
+  --line: #dce2ea;
+  --accent: #2563eb;
+  --soft: #eff4ff;
+  --sidebar: #f7f8fb;
+  --theme-page: #f4f6fa;
+  --theme-surface: #ffffff;
+  --theme-text: #334155;
+  --theme-heading: #172033;
+  --theme-muted: #64748b;
+  --theme-border: #dce2ea;
+  --theme-focus: #2563eb;
+  --theme-soft: #f1f5f9;
+  --theme-hover: #eaf0fa;
+  --theme-selected: #dce8ff;
+  --theme-accent: #2563eb;
+  --theme-primary: #2563eb;
+  --theme-primary-hover: #1d4ed8;
+  --theme-primary-muted: #dbeafe;
+  --theme-warning: #92400e;
+  --theme-warning-bg: #fffbeb;
+  --theme-warning-border: #f5d78e;
+  --theme-tooltip: #334155;
+  --theme-link-line: #b7ceff;
+  --theme-code-bg: #f1f5f9;
+  --theme-code-text: #334155;
+  --theme-inline-code-bg: #edf2fa;
+  --theme-code-label: #e2e8f0;
+  --theme-code-label-text: #475569;
+  --theme-quote-border: #93b4f5;
+  --theme-selection: #cdddff;
+  --theme-selection-text: #172033;
+  --theme-scrollbar: #c5cedb;
+  --theme-scrollbar-hover: #a4b1c2;
+  --control-text: #25364f;
+  --control-active-text: #1d4ed8;
+  --control-bg: #f7f9fd;
+  --control-border: #7a8da8;
+  --control-hover: #e5edff;
+  --control-hover-border: #4b72b3;
+  --control-disabled-text: #65748a;
+  --control-disabled-bg: #edf1f7;
+}
+
+:root[data-theme=dark] {
+  color-scheme: dark;
+  --ink: #e5eaf2;
+  --text: #c1cbd9;
+  --muted: #9ba9bd;
+  --line: #344052;
+  --accent: #93baff;
+  --soft: #263247;
+  --sidebar: #181f2b;
+  --theme-page: #141b26;
+  --theme-surface: #1c2533;
+  --theme-text: #d0d8e5;
+  --theme-heading: #edf2fa;
+  --theme-muted: #9ba9bd;
+  --theme-border: #344052;
+  --theme-focus: #93baff;
+  --theme-soft: #232e3e;
+  --theme-hover: #2b3950;
+  --theme-selected: #304569;
+  --theme-accent: #93baff;
+  --theme-primary: #3568c4;
+  --theme-primary-hover: #356dcc;
+  --theme-primary-muted: #e0ebff;
+  --theme-warning: #f3c887;
+  --theme-warning-bg: #352b1c;
+  --theme-warning-border: #6b5530;
+  --theme-tooltip: #35435a;
+  --theme-link-line: #5478b7;
+  --theme-code-bg: #131b27;
+  --theme-code-text: #d5dfef;
+  --theme-inline-code-bg: #2a3548;
+  --theme-code-label: #2d3b51;
+  --theme-code-label-text: #bdcbe0;
+  --theme-quote-border: #5478b7;
+  --theme-selection: #365785;
+  --theme-selection-text: #ffffff;
+  --theme-scrollbar: #46546a;
+  --theme-scrollbar-hover: #60708a;
+  --control-text: #e0e8f4;
+  --control-active-text: #b3ceff;
+  --control-bg: #263448;
+  --control-border: #70829b;
+  --control-hover: #324763;
+  --control-hover-border: #9cb8dd;
+  --control-disabled-text: #90a0b5;
+  --control-disabled-bg: #232e3e;
+}
+
+.theme-select {
+  max-width: 110px;
+  min-height: 38px;
+  padding: 7px 8px;
+  border: 1px solid var(--control-border);
+  border-radius: 9px;
+  background: var(--control-bg);
+  color: var(--control-text);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.theme-select:hover { border-color: var(--accent); }
+.theme-select:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+/* 第三方编辑器的浮层、表格选择器和代码语言菜单同步使用页面配色。 */
+#editor :is(.toastui-editor-popup, .toastui-editor-context-menu) {
+  color: var(--ink);
+  background: var(--theme-surface, #fff);
+  border-color: var(--line);
+}
+#editor .toastui-editor-popup-body :is(label, .tab-item, .toastui-editor-table-description, .toastui-editor-file-name.has-file) { color: var(--text); }
+#editor .toastui-editor-popup-body :is(input[type=text], .toastui-editor-file-name) {
+  color: var(--text);
+  background: var(--theme-surface, #fff);
+  border-color: var(--line);
+}
+#editor .toastui-editor-popup-body input[type=text]:focus { outline-color: var(--accent); }
+#editor .toastui-editor-popup-body input.wrong { border-color: var(--theme-warning, #b37747); }
+#editor .toastui-editor-popup-body :is(.tab-item, .toastui-editor-file-select-button) { border-color: var(--line); }
+#editor .toastui-editor-popup-body .tab-item.active { color: var(--accent); border-bottom-color: var(--accent); }
+#editor :is(.toastui-editor-defaultUI button.toastui-editor-close-button, .toastui-editor-close-button) { background-color: transparent; }
+#editor :is(.toastui-editor-defaultUI button.toastui-editor-default-button, .toastui-editor-default-button, .toastui-editor-file-select-button) {
+  color: var(--control-text);
+  background: var(--control-bg);
+  border-color: var(--control-border);
+}
+#editor .toastui-editor-ok-button { color: #fff; background: var(--theme-primary, #3c6946); border-color: var(--theme-primary, #3c6946); }
+#editor .toastui-editor-ok-button:not(:disabled):hover { background: var(--theme-primary-hover, #30593a); }
+.button:disabled, .icon-button:disabled, .history-close:disabled, .zoom-controls button:disabled, .resource-menu button:disabled {
+  opacity: 1; color: var(--control-disabled-text); background: var(--control-disabled-bg); border-color: var(--line); box-shadow: none;
+}
+#editor .toastui-editor-table-cell { background: var(--theme-surface, #fff); border-color: var(--line); }
+#editor .toastui-editor-table-cell.header { background: var(--theme-soft, #f3f7ee); }
+#editor .toastui-editor-table-selection-layer { border-color: var(--accent); background: var(--soft); opacity: .6; }
+#editor .toastui-editor-context-menu .menu-group { border-color: var(--line); }
+#editor .toastui-editor-context-menu li:not(.disabled):hover { background: var(--theme-hover, #edf4e7); }
+#editor .toastui-editor-tooltip .arrow { background: var(--theme-tooltip, #354c36); }
+#editor .ProseMirror .placeholder { color: var(--theme-muted, #96a18e); }
+#editor .toastui-editor-contents .toastui-editor-ww-code-block pre { color: var(--theme-code-text, #e4eddf); }
+#editor .toastui-editor-ww-code-block-language {
+  color: var(--text);
+  background: var(--theme-surface, #fff);
+  border-color: var(--line);
+}
+#editor .toastui-editor-ww-code-block-language input { color: inherit; }
+#editor .toastui-editor-contents-placeholder::before { color: var(--theme-muted, #96a18e); }
+#editor .toastui-editor-contents :is(.toastui-editor-custom-block-editor, .toastui-editor-custom-block-view) {
+  color: var(--text);
+  background: var(--theme-soft, #f3f7ee);
+  border-color: var(--line);
+}
+:root[data-theme=dark] #editor .toastui-editor-context-menu span::before,
+:root[data-theme=dark] #editor .toastui-editor-close-button { filter: invert(1) hue-rotate(180deg); }
+:root[data-theme=dark] #editor .toastui-editor-contents .task-list-item::before { filter: invert(.85) hue-rotate(180deg); }
+
+@media(max-width: 580px) {
+  .theme-select { max-width: 96px; padding: 7px 5px; }
+}

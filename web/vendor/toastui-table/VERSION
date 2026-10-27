@@ -1,0 +1,4 @@
+@toast-ui/editor-plugin-table-merged-cell 3.1.0
+https://github.com/nhn/tui.editor
+MIT
+Adaptation: CommonJS bundle wrapped for browser registration as toastui.Editor.plugin.tableMergedCell.
