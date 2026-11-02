@@ -48,13 +48,14 @@ function icon(name) {
 const state = {
   path: '', revision: '', saved: '', lineEnding: '\n', trailingNewline: false,
   limits: null,
-  localAdmin: false, fileAccess: {}, readOnly: false, revokedDraft: null,
+  localAdmin: false, fileAccess: {}, readOnly: false, reading: false, revokedDraft: null,
   documentsClosed: readBrowsingPaths('mojian.closedView').includes('closed'),
   fileOperations: false, folders: [], deletedDocument: '', unavailablePath: '',
   files: [], directories: [], libraryWarning: '', saving: null, navigating: false, loading: false, conflict: false, merging: false,
   composing: false, saveTimer: null, editor: null, imageViews: new Set(), expandedFolders: new Set(readBrowsingPaths('mojian.expandedFolders')),
   pendingNavigation: null, navigationTask: null, navigationTarget: '',
 };
+let documentPosition = null;
 const content = () => state.editor ? state.editor.getMarkdown() : '';
 const dirty = () => !!state.path && content() !== state.saved;
 const searchState = { query: '', matches: new Set(), timer: null, controller: null, request: 0, pending: false, error: '' };
@@ -318,7 +319,7 @@ function updateScrollNavigation() {
   const atTop = !viewport || viewport.scrollTop <= 1;
   const atBottom = !viewport || viewport.scrollTop >= maxScroll - 1;
   const busy = state.navigating || state.merging || $('document').inert;
-  $('editor').editorSearch?.setAvailable(!!state.path && !$('editor').hidden && !busy);
+  $('editor').editorSearch?.setAvailable(!state.reading && !!state.path && !$('editor').hidden && !busy);
   $('toggleOutline').disabled = !state.path || $('editor').hidden || busy;
   updateDocumentOutlinePosition();
   for (const id of ['scrollNavigationTop', 'scrollNavigationBottom']) {
@@ -428,7 +429,7 @@ function localImagesPlugin() {
 }
 
 function onChange() {
-  if (state.loading || !state.path || state.readOnly) return;
+  if (state.loading || !state.path || state.readOnly || state.reading) return;
   clearTimeout(state.saveTimer);
   count();
   const resumed = Date.now() - externalChanges.lastEdit >= idleCheckDelay;
@@ -452,7 +453,7 @@ function createEditor() {
       ['heading', 'bold', 'italic', 'strike'], ['hr', 'quote'],
       ['ul', 'ol', 'task', 'indent', 'outdent'], ['table', 'image', 'link'], ['code', 'codeblock'],
     ],
-    plugins: [...tableEditorPlugins(), markdownShortcutsPlugin, editorEndClickPlugin, editorLineNumbersPlugin, editorSearchPlugin, localImagesPlugin, localMarkdownLinksPlugin],
+    plugins: [...tableEditorPlugins(), markdownShortcutsPlugin, editorCodeBlockPlugin, editorEndClickPlugin, editorLineNumbersPlugin, editorSearchPlugin, localImagesPlugin, localMarkdownLinksPlugin],
   });
   state.editor.on('change', onChange);
   // 独立于格式按钮的折叠菜单，始终固定在编辑工具栏最右侧。
@@ -469,6 +470,8 @@ function createEditor() {
   installDocumentOutline(root);
   const scrollViewport = root.querySelector('.toastui-editor-ww-container > .toastui-editor');
   scrollViewport.addEventListener('scroll', scheduleScrollNavigation, { passive: true });
+  documentPosition = createDocumentPositionTracker(scrollViewport, root.querySelector('.toastui-editor-ww-container .ProseMirror'),
+    path => state.path === path && !state.loading && !root.hidden, root);
   // 图片加载、正文增删和缩放都可能改变文章是否能滚动。
   root.addEventListener('load', scheduleScrollNavigation, true);
   if (typeof ResizeObserver === 'function') {
@@ -503,6 +506,10 @@ function createEditor() {
 
 async function save() {
   clearTimeout(state.saveTimer);
+  if (state.reading) {
+    if (dirty()) notice('阅读模式已暂停保存，草稿仍保留。请切回编辑模式后保存或切换文档。');
+    return !dirty();
+  }
   if (state.readOnly) { if (dirty()) notice('当前文档为只读，不能保存。'); return !dirty(); }
   if (state.saving) return state.saving;
   if (!dirty()) return true;
@@ -512,9 +519,10 @@ async function save() {
   const task = (async () => {
     try {
       if (!await checkExternalChanges(true)) return false;
-      if (state.composing) return false;
+      if (state.composing || state.reading) return false;
       let merged = false;
       for (let attempt = 0; attempt < 4; attempt++) {
+        if (state.reading) return false;
         const markdown = content(), revision = state.revision;
         let diskContent = markdown.replace(/\r+\n|\r/g, '\n');
         if (state.trailingNewline && !diskContent.endsWith('\n')) diskContent += '\n';
@@ -584,7 +592,7 @@ async function save() {
   state.saving = task;
   const success = await task;
   state.saving = null;
-  if (success && dirty() && !state.composing) state.saveTimer = setTimeout(save, 800);
+  if (success && dirty() && !state.composing && !state.reading) state.saveTimer = setTimeout(save, 800);
   return success;
 }
 
@@ -599,12 +607,13 @@ function setBusy(busy) {
   $('document').classList.toggle('busy', busy);
   $('document').inert = busy;
   $('document').setAttribute('aria-busy', String(busy));
-  $('editor').editorSearch?.setAvailable(!busy && !!state.path && !$('editor').hidden);
+  $('editor').editorSearch?.setAvailable(!state.reading && !busy && !!state.path && !$('editor').hidden);
   $('toggleOutline').disabled = busy || !state.path || $('editor').hidden;
-  $('save').disabled = busy || state.readOnly || !state.path;
+  $('save').disabled = busy || state.readOnly || state.reading || !state.path;
   $('reload').disabled = busy;
   $('managePaths').disabled = busy || !state.localAdmin;
   syncFileOperationButtons();
+  if (typeof syncReadingDocument === 'function') syncReadingDocument();
   scheduleScrollNavigation();
 }
 
@@ -643,6 +652,7 @@ function navigate(path, refresh = false, { closing = false } = {}) {
 }
 
 async function switchDocument(path, refresh, { closing = false } = {}) {
+  documentPosition?.save();
   $('editor').dispatchEvent(new Event('resourcehide'));
   const previousPath = state.path;
   try {
@@ -709,8 +719,6 @@ async function switchDocument(path, refresh, { closing = false } = {}) {
     state.deletedDocument = ''; state.unavailablePath = '';
     $('editor').hidden = false; $('empty').hidden = true;
     state.editor.setMarkdown(prepared, false);
-    state.editor.setScrollTop(0);
-    $('editor').querySelector('.toastui-editor-ww-container > .toastui-editor').scrollTop = 0;
     state.imageViews.forEach(refresh => refresh());
     // 使用编辑器规范化后的 Markdown 作基线：只阅读时不改写原文件。
     state.saved = content();
@@ -737,6 +745,7 @@ async function switchDocument(path, refresh, { closing = false } = {}) {
     if (closing) updateFileHighlights(); else drawFiles();
     count(); notice(state.libraryWarning); status(state.readOnly ? '只读文档 · 可查看和复制' : '已加载 · 点击正文即可编辑');
     if (mobileSidebar.matches) setSidebar(false);
+    documentPosition?.restore(data.path);
     if (!closing) await animateDocument('in');
     return true;
   } catch (error) {
@@ -794,5 +803,6 @@ $('toggleSidebar').onclick = () => setSidebar(!sidebarOpen());
 $('sidebarScrim').onclick = () => { setSidebar(false); $('toggleSidebar').focus(); };
 mobileSidebar.addEventListener('change', () => setSidebar(mobileSidebar.matches ? false : !desktopSidebarCollapsed));
 setSidebar(mobileSidebar.matches ? false : !desktopSidebarCollapsed);
+initReadingMode();
 navigate(new URLSearchParams(location.search).get('file') || '', true);
 

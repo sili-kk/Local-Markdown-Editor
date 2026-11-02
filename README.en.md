@@ -1,6 +1,6 @@
 # Local Markdown Editor · 屿墨笺
 
-[中文](README.md) · [Testing](docs/TESTING.md) · [Releases](docs/RELEASING.md)
+[中文](README.md) · [Changelog](update.md) · [Testing](docs/TESTING.md) · [Releases](docs/RELEASING.md)
 
 A Go application for editing Markdown files on your own disk and sharing documents within a trusted LAN. The interface is currently in Chinese; documentation is available in Chinese and English.
 
@@ -12,6 +12,8 @@ A Go application for editing Markdown files on your own disk and sharing documen
 - WYSIWYG editing, tables, code blocks, images, links and automatic saves.
 - Multiple document roots, tabs, outline, sorting and local file management.
 - Adjustable line numbers, line jumps, current-document search and highlighting.
+- Per-document reading positions restored after refresh, reload or switching tabs.
+- Separate paginated reading mode and outline, with independent desktop and mobile preferences.
 - Remote directory permissions with inheritance: hidden, read-only or read/write.
 - In-page Markdown/HTML previews, sandbox isolation and embedded local images with zoom.
 - Viewer totals across all documents, deduplicated by IP, with document activity details.

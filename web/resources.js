@@ -132,6 +132,97 @@ async function prepareHTMLPreviewImages(data, resource, signal) {
   return template.innerHTML;
 }
 
+function htmlPreviewImageLoader(channel) {
+  const attribute = 'data-mojian-preview-src';
+  const pending = new Map(), cache = new Map(), requests = new Set();
+  const assigned = new WeakMap();
+  let timer = null;
+  const local = value => value && !(/^(?:data:|blob:|https?:|#)/i.test(value) || value.startsWith('//')) && /\.(?:png|jpe?g|gif|webp|avif|bmp|ico|svg)(?:[?#].*)?$/i.test(value);
+  const setAttribute = Element.prototype.setAttribute;
+  const innerHTML = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
+  const imageSrc = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src');
+  const apply = (node, reference, source) => {
+    if (assigned.get(node) !== reference) return;
+    if (node.tagName === 'IMG') {
+      node.removeAttribute('srcset');
+      if (source) setAttribute.call(node, 'src', source);
+      else { node.removeAttribute('src'); node.setAttribute('alt', '图片不存在、过大或无权访问'); }
+    } else if (source) setAttribute.call(node, 'data-preview-image', source);
+  };
+  const flush = () => {
+    timer = null;
+    const batch = [...requests].slice(0, 32);
+    for (const reference of batch) requests.delete(reference);
+    if (batch.length) parent.postMessage({ type: 'mojian-preview-images', channel, images: batch }, '*');
+    if (requests.size) timer = setTimeout(flush, 0);
+  };
+  const load = (node, reference) => {
+    if (!local(reference) || reference.length > 16384) return false;
+    assigned.set(node, reference);
+    if (node.tagName === 'IMG') { node.removeAttribute('src'); node.removeAttribute('srcset'); }
+    if (cache.has(reference)) { apply(node, reference, cache.get(reference)); return true; }
+    if (!pending.has(reference)) {
+      if (pending.size + cache.size >= 256) { apply(node, reference, ''); return true; }
+      pending.set(reference, new Set()); requests.add(reference);
+      if (timer === null) timer = setTimeout(flush, 0);
+    }
+    pending.get(reference).add(node);
+    return true;
+  };
+  const scan = root => {
+    const nodes = [];
+    if (root.nodeType === 1 && root.matches('img, a[href]')) nodes.push(root);
+    nodes.push(...root.querySelectorAll('img, a[href]'));
+    for (const node of nodes) {
+      const reference = node.getAttribute(attribute) || node.getAttribute(node.tagName === 'IMG' ? 'src' : 'href');
+      node.removeAttribute(attribute);
+      if (reference && !(node.tagName === 'A' && node.hasAttribute('data-preview-image'))) load(node, reference);
+    }
+    root.querySelectorAll('picture source[srcset]').forEach(node => node.removeAttribute('srcset'));
+  };
+  // Parse dynamic markup in an inert template before assigning innerHTML. This
+  // prevents relative image requests from reaching the editor origin at all.
+  const markup = value => {
+    if (typeof value !== 'string' || !/<img\b/i.test(value)) return value;
+    const template = document.createElement('template'); innerHTML.set.call(template, value);
+    for (const node of template.content.querySelectorAll('img[src]')) {
+      const reference = node.getAttribute('src');
+      if (local(reference)) { setAttribute.call(node, attribute, reference); node.removeAttribute('src'); node.removeAttribute('srcset'); }
+    }
+    return innerHTML.get.call(template);
+  };
+  Object.defineProperty(Element.prototype, 'innerHTML', { ...innerHTML, set(value) { innerHTML.set.call(this, markup(value)); scan(this); } });
+  const adjacent = Element.prototype.insertAdjacentHTML;
+  Element.prototype.insertAdjacentHTML = function(position, value) { adjacent.call(this, position, markup(value)); };
+  Element.prototype.setAttribute = function(name, value) {
+    if (this.tagName === 'IMG' && String(name).toLowerCase() === 'src') {
+      if (load(this, String(value))) return;
+      assigned.delete(this);
+    }
+    setAttribute.call(this, name, value);
+  };
+  Object.defineProperty(HTMLImageElement.prototype, 'src', { ...imageSrc, set(value) {
+    if (!load(this, String(value))) { assigned.delete(this); imageSrc.set.call(this, value); }
+  } });
+  window.addEventListener('message', event => {
+    const data = event.data;
+    if (event.source !== parent || !data || data.type !== 'mojian-preview-images-result' || data.channel !== channel || !data.images || typeof data.images !== 'object') return;
+    for (const [reference, nodes] of pending) {
+      if (!Object.prototype.hasOwnProperty.call(data.images, reference)) continue;
+      const source = typeof data.images[reference] === 'string' && /^data:image\//i.test(data.images[reference]) ? data.images[reference] : '';
+      cache.set(reference, source); pending.delete(reference);
+      for (const node of nodes) apply(node, reference, source);
+    }
+  });
+  new MutationObserver(records => {
+    for (const record of records) {
+      if (record.type === 'attributes') scan(record.target);
+      else for (const node of record.addedNodes) if (node.nodeType === 1) scan(node);
+    }
+  }).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['src', 'href', attribute] });
+  document.addEventListener('DOMContentLoaded', () => scan(document));
+}
+
 function installResourceInteractions(root) {
   const tooltip = document.createElement('div');
   tooltip.className = 'resource-tooltip'; tooltip.hidden = true; tooltip.setAttribute('role', 'dialog');
@@ -158,13 +249,42 @@ function installResourceInteractions(root) {
   const cache = new Map();
   let openGeneration = 0;
   let htmlDialog = null, htmlFrame = null, htmlTitle = null, htmlController = null;
+  let htmlResource = null, htmlImageChannel = 0;
+  const htmlImageReferences = new Set();
+  window.addEventListener('message', async event => {
+    const message = event.data;
+    if (!htmlResource || !htmlDialog?.open || event.source !== htmlFrame?.contentWindow ||
+        !message || message.type !== 'mojian-preview-images' || message.channel !== htmlImageChannel || !Array.isArray(message.images)) return;
+    const channel = htmlImageChannel, resource = htmlResource, controller = htmlController;
+    const images = [...new Set(message.images.filter(value => typeof value === 'string' && value.length <= 16384 &&
+      !/^(?:data:|blob:|https?:|\/\/|#)/i.test(value) && /\.(?:png|jpe?g|gif|webp|avif|bmp|ico|svg)(?:[?#].*)?$/i.test(value)))].slice(0, 32);
+    const requested = [];
+    for (const reference of images) {
+      if (!htmlImageReferences.has(reference) && htmlImageReferences.size >= 256) continue;
+      htmlImageReferences.add(reference); requested.push(reference);
+    }
+    let loaded = {};
+    try {
+      if (requested.length) {
+        const response = await api('/api/resource/html-images', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: controller.signal,
+          body: JSON.stringify({ path: resource.path, reference: resource.reference, images: requested }),
+        });
+        loaded = response.images || {};
+      }
+    } catch { /* Missing, revoked or oversized images get a local placeholder. */ }
+    if (channel !== htmlImageChannel || !htmlResource || controller.signal.aborted) return;
+    const result = Object.fromEntries(images.map(reference => [reference, loaded[reference] || '']));
+    htmlFrame.contentWindow.postMessage({ type: 'mojian-preview-images-result', channel, images: result }, '*');
+  });
   function closeHTMLPreview() {
-    openGeneration++;
+    openGeneration++; htmlImageChannel++; htmlResource = null;
     htmlController?.abort();
     if (htmlDialog?.open) htmlDialog.close();
     htmlFrame?.removeAttribute('srcdoc');
   }
-  function showHTMLPreview(data) {
+  function showHTMLPreview(data, resource) {
+    htmlResource = resource; htmlImageChannel++; htmlImageReferences.clear();
     if (!htmlDialog) {
       htmlDialog = document.createElement('dialog'); htmlDialog.className = 'resource-html-dialog';
       htmlDialog.setAttribute('aria-label', 'HTML 文件预览');
@@ -180,13 +300,13 @@ function installResourceInteractions(root) {
       htmlFrame.setAttribute('referrerpolicy', 'no-referrer');
       htmlDialog.append(heading, htmlFrame); document.body.append(htmlDialog);
       htmlDialog.addEventListener('cancel', () => { openGeneration++; htmlController?.abort(); htmlFrame.removeAttribute('srcdoc'); });
-      htmlDialog.addEventListener('close', () => htmlFrame.removeAttribute('srcdoc'));
+      htmlDialog.addEventListener('close', () => { htmlImageChannel++; htmlResource = null; htmlFrame.removeAttribute('srcdoc'); });
     }
     htmlTitle.textContent = displayLibraryPath(data.path);
     // Local images have already been permission-checked and embedded. Network
     // requests and editor-origin privileges remain blocked in the sandbox.
     const policy = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; base-uri 'none'; form-action 'none'";
-    htmlFrame.srcdoc = '<!doctype html><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="' + policy + '"><script>(' + htmlPreviewNavigation.toString() + ')();</script>' + data.content;
+    htmlFrame.srcdoc = '<!doctype html><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="' + policy + '"><script>(' + htmlPreviewNavigation.toString() + ')();(' + htmlPreviewImageLoader.toString() + ')(' + JSON.stringify(htmlImageChannel) + ');</script>' + data.content;
     if (!htmlDialog.open) htmlDialog.showModal();
   }
   function checkMetadata(data) {
@@ -243,7 +363,7 @@ function installResourceInteractions(root) {
       if (!data.path?.startsWith('@') || typeof data.content !== 'string') throw new Error('文件不存在或不可访问');
       data.content = await prepareHTMLPreviewImages(data, resource, controller.signal);
       if (request !== openGeneration || resource.path !== state.path) return;
-      showHTMLPreview(data);
+      showHTMLPreview(data, resource);
     } catch (error) {
       if (request === openGeneration && resource.path === state.path) notice(state.localAdmin ? error.message : 'HTML 文件不存在或不可访问，请检查读取权限');
     }

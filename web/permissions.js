@@ -94,13 +94,14 @@ function applyDocumentAccess(access) {
     notice('文档已改为只读，未保存的草稿保留在本页面，恢复读写权限后可重新打开并恢复。');
   }
   state.readOnly = access !== 'rw';
-  $('save').disabled = state.readOnly || state.navigating || !state.path;
+  $('save').disabled = state.readOnly || state.reading || state.navigating || !state.path;
   $('save').title = state.readOnly ? '当前文档为只读' : '保存文档';
   if (state.readOnly) clearTimeout(state.saveTimer);
   const view = state.editor?.getCurrentModeEditor().view;
-  if (view) view.setProps({ editable: () => !state.readOnly });
+  if (view) view.setProps({ editable: () => !state.readOnly && !state.reading });
   $('editor').dataset.readonly = String(state.readOnly);
   $('editor').querySelectorAll('.toastui-editor-toolbar-group').forEach(group => { group.inert = state.readOnly; });
+  if (typeof syncReadingDocument === 'function') syncReadingDocument();
 }
 
 function revokeDocumentAccess() {
@@ -115,6 +116,7 @@ function revokeDocumentAccess() {
   state.loading = true;
   try { state.editor?.setMarkdown('', false); } finally { state.loading = loading; }
   state.path = ''; state.saved = ''; state.revision = ''; state.conflict = false;
+  if (typeof syncReadingDocument === 'function') syncReadingDocument();
   resetExternalChanges();
   $('editor').hidden = true; $('empty').hidden = false;
   $('empty').textContent = '当前文档已删除或不可访问，请选择其他文档。';

@@ -1,6 +1,6 @@
 # 屿墨笺 · Local Markdown Editor
 
-[English](README.en.md) · [原生运行](#原生运行) · [Docker](#docker-compose) · [测试](docs/TESTING.md) · [Release](docs/RELEASING.md)
+[English](README.en.md) · [更新记录](update.md) · [原生运行](#原生运行) · [Docker](#docker-compose) · [测试](docs/TESTING.md) · [Release](docs/RELEASING.md)
 
 一个使用 Go 构建的本地 Markdown 编辑器：直接编辑磁盘上的文档，也可在可信局域网内共享。
 
@@ -12,6 +12,8 @@
 - 所见即所得编辑，支持表格、代码块、图片、链接及自动保存。
 - 多个文档目录、标签页、拖动排序、文档目录和本机文件管理。
 - 行号、可调行号栏、本页搜索高亮、上下匹配和行号跳转。
+- 按文档记忆浏览位置，刷新页面、重新加载或切回顶部标签时恢复。
+- 独立阅读模式、左右翻页与阅读目录，桌面和移动端分别记忆偏好。
 - 远端目录权限：隐藏、只读、读写，权限继承至子目录和文件。
 - 本页 Markdown/HTML 预览、隔离沙箱、本地图片及原图放大。
 - 跨文档在线人数按 IP 合计，并展示各 IP 正在查看的文档。

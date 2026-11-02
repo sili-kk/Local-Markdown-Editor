@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="/static/vendor/toastui-table/toastui-editor-plugin-table-merged-cell.css">
   <link rel="stylesheet" href="/static/styles.css">
   <link rel="stylesheet" href="/static/themes.css">
+  <link rel="stylesheet" href="/static/reading-mode.css">
 </head>
 <body>
   <div class="app" id="app">
@@ -37,12 +38,16 @@
           </div>
         </div>
         <div class="header-tools">
-          <div class="actions">
+          <div class="view-mode-controls">
           <select class="theme-select" id="themeSelect" aria-label="切换主题" title="切换主题">
             <option value="green">柔绿主题</option>
             <option value="light">明亮主题</option>
             <option value="dark">黑暗主题</option>
           </select>
+          <button class="button" id="toggleReading" type="button" aria-pressed="false" aria-controls="reader" disabled>阅读</button>
+          <button class="button" id="readerOutline" type="button" aria-controls="documentOutline" aria-expanded="false" hidden>目录</button>
+          </div>
+          <div class="actions">
           <div class="zoom-controls" role="group" aria-label="编辑页面缩放">
             <button id="zoomOut" type="button" aria-label="缩小编辑页面" title="缩小编辑页面"><span data-icon="minus"></span></button>
             <button id="zoomReset" type="button" aria-label="当前缩放 100%，点击恢复原始大小" title="恢复为 100%">100%</button>
@@ -68,6 +73,14 @@
           <button class="button scroll-button" data-scroll-to="bottom" type="button" aria-label="滚动到文章底部" aria-controls="editor" title="到文章底部" disabled><span data-icon="arrow-down"></span></button>
         </div>
         <div id="editor" hidden></div>
+        <section id="reader" aria-label="文档阅读器" hidden>
+          <div id="readerViewport" tabindex="0" role="region" aria-label="分页正文，可左右滑动翻页"><div id="readerContent"></div></div>
+          <nav class="reader-pagination" aria-label="阅读翻页">
+            <button class="button" id="readerPrevious" type="button" aria-controls="readerViewport">上一页</button>
+            <span id="readerProgress" role="status" aria-live="polite" aria-atomic="true">第 1 / 1 页</span>
+            <button class="button" id="readerNext" type="button" aria-controls="readerViewport">下一页</button>
+          </nav>
+        </section>
         <section id="documentOutline" aria-labelledby="outlineTitle" hidden>
           <div class="outline-heading"><strong id="outlineTitle">文档目录</strong><button class="icon-button" id="closeOutline" type="button" aria-label="关闭文档目录" title="关闭目录"><span data-icon="close"></span></button></div>
           <nav id="outlineList" aria-label="文档章节"></nav>
@@ -158,6 +171,7 @@
   <script src="/static/memory.js"></script>
   <script src="/static/document-format.js"></script>
   <script src="/static/markdown-shortcuts.js"></script>
+  <script src="/static/editor-code-block.js"></script>
   <script src="/static/editor-end-click.js"></script>
   <script src="/static/editor-line-numbers.js"></script>
   <script src="/static/editor-search.js"></script>
@@ -169,10 +183,12 @@
   <script src="/static/resources.js"></script>
   <script src="/static/external-changes.js"></script>
   <script src="/static/outline.js"></script>
+  <script src="/static/reading-mode.js"></script>
   <script src="/static/browsing-state.js"></script>
   <script src="/static/workspace-sort.js"></script>
   <script src="/static/sidebar-resize.js"></script>
   <script src="/static/viewers.js"></script>
+  <script src="/static/document-position.js"></script>
   <script src="/static/app.js"></script>
 </body>
 </html>

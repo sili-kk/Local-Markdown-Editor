@@ -6,19 +6,29 @@ let documentOutlineEntries = [];
 let documentOutlineFrame = null;
 
 function setDocumentOutlineOpen(open, restoreFocus = false) {
-  if (open && $('toggleOutline').disabled) return;
+  const trigger = state.reading ? $('readerOutline') : $('toggleOutline');
+  if (open && trigger.disabled) return;
   $('documentOutline').hidden = !open;
   $('toggleOutline').setAttribute('aria-expanded', String(open));
   $('toggleOutline').setAttribute('aria-label', open ? '收起文档目录' : '显示文档目录');
+  $('readerOutline').setAttribute('aria-expanded', String(open));
   if (open) {
     renderDocumentOutline();
-    $('outlineList').querySelector('[aria-current="location"]')?.scrollIntoView({ block: 'nearest' });
+    const current = $('outlineList').querySelector('[aria-current="location"]');
+    if (current) {
+      // Scroll only the directory, never the page or the paginated article.
+      const list = $('outlineList'), item = current.getBoundingClientRect(), bounds = list.getBoundingClientRect();
+      if (item.top < bounds.top) list.scrollTop -= bounds.top - item.top;
+      else if (item.bottom > bounds.bottom) list.scrollTop += item.bottom - bounds.bottom;
+    }
   }
-  if (restoreFocus) $('toggleOutline').focus({ preventScroll: true });
+  if (restoreFocus) trigger.focus({ preventScroll: true });
 }
 
 function renderDocumentOutline() {
-  const headings = $('editor').querySelectorAll('.toastui-editor-ww-container .ProseMirror :is(h1, h2, h3, h4, h5, h6)');
+  const headings = state.reading
+    ? $('readerContent').querySelectorAll(':is(h1, h2, h3, h4, h5, h6)')
+    : $('editor').querySelectorAll('.toastui-editor-ww-container .ProseMirror :is(h1, h2, h3, h4, h5, h6)');
   const list = $('outlineList'), fragment = document.createDocumentFragment();
   documentOutlineEntries = [];
   const baseLevel = Array.from(headings).reduce((level, heading) => Math.min(level, Number(heading.tagName[1])), 6);
@@ -32,6 +42,11 @@ function renderDocumentOutline() {
     button.style.setProperty('--outline-depth', level - baseLevel);
     button.onclick = () => {
       if (!heading.isConnected || state.navigating || state.merging || $('document').inert) return;
+      if (state.reading) {
+        goToReaderPage(readerPageForElement(heading));
+        setDocumentOutlineOpen(false, true);
+        return;
+      }
       const viewport = $('editor').querySelector('.toastui-editor-ww-container > .toastui-editor');
       // Rectangles include CSS zoom; scrollTop uses the editor's local pixels.
       const scale = viewport.getBoundingClientRect().height / viewport.offsetHeight || 1;
@@ -45,7 +60,7 @@ function renderDocumentOutline() {
   if (!headings.length) {
     const empty = document.createElement('p');
     empty.className = 'empty';
-    empty.textContent = '暂无章节标题，添加一级至六级标题后会显示在这里。';
+    empty.textContent = '这篇文档暂无章节标题。';
     fragment.append(empty);
   }
   list.replaceChildren(fragment);
@@ -54,14 +69,14 @@ function renderDocumentOutline() {
 
 function updateDocumentOutlinePosition() {
   if ($('documentOutline').hidden) return;
-  const viewport = $('editor').querySelector('.toastui-editor-ww-container > .toastui-editor');
+  const viewport = state.reading ? $('readerViewport') : $('editor').querySelector('.toastui-editor-ww-container > .toastui-editor');
   if (!viewport) return;
   const bounds = viewport.getBoundingClientRect();
   $('documentOutline').style.setProperty('--outline-top', Math.max(0, bounds.top - $('document').getBoundingClientRect().top + 8) + 'px');
   const scale = bounds.height / viewport.offsetHeight || 1;
   let active = documentOutlineEntries[0];
   for (const entry of documentOutlineEntries) {
-    if (entry.heading.getBoundingClientRect().top <= bounds.top + 20 * scale) active = entry;
+    if (state.reading ? readerPageForElement(entry.heading) <= readingLayout.page : entry.heading.getBoundingClientRect().top <= bounds.top + 20 * scale) active = entry;
     else break;
   }
   for (const entry of documentOutlineEntries) {
@@ -82,7 +97,7 @@ function installDocumentOutline(root) {
 }
 
 document.addEventListener('pointerdown', event => {
-  if (!$('documentOutline').hidden && !$('documentOutline').contains(event.target) && !$('toggleOutline').contains(event.target)) {
+  if (!$('documentOutline').hidden && !$('documentOutline').contains(event.target) && !$('toggleOutline').contains(event.target) && !$('readerOutline').contains(event.target)) {
     setDocumentOutlineOpen(false);
   }
 });

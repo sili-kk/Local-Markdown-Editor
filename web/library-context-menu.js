@@ -3,7 +3,7 @@
 let libraryContextTarget = null;
 
 function libraryManagementBusy() {
-  return fileMutationBusy || pathsSaving || pathsLoading || state.navigating || state.merging ||
+  return state.reading || fileMutationBusy || pathsSaving || pathsLoading || state.navigating || state.merging ||
     $('pathsDialog').open || workspaceSortBusy();
 }
 

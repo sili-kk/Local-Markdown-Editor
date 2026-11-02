@@ -291,9 +291,12 @@ header { height: 99px; flex-shrink: 0; padding: 0 31px; display: flex; align-ite
 #editor .toastui-editor-contents li::marker { color: var(--theme-accent, #779571); }
 #editor .toastui-editor-contents pre { box-sizing: border-box; max-width: 100%; overflow-x: auto; white-space: pre-wrap; overflow-wrap: anywhere; word-break: normal; tab-size: 4; background: var(--theme-code-bg, #243b2c); color: var(--theme-code-text, #e4eddf); border: 1px solid var(--theme-border, #1f3324); border-radius: 9px; margin: 23px 0; padding: 21px 23px; font-family: Consolas, "SFMono-Regular", "Microsoft YaHei", monospace; font-size: 13px; line-height: 1.8; }
 #editor .toastui-editor-contents code { color: var(--theme-accent, #507a46); background: var(--theme-inline-code-bg, #eef3e9); border-radius: 4px; padding: 2px 5px; font-family: Consolas, "SFMono-Regular", "Microsoft YaHei", monospace; font-size: .88em; letter-spacing: normal; }
-#editor .toastui-editor-contents pre code { display: block; color: inherit; background: transparent; padding: 0; font: inherit; white-space: pre-wrap; overflow-wrap: anywhere; word-break: normal; }
+/* A block-level contentDOM is split into sibling code elements by native multiline input. */
+#editor .toastui-editor-contents pre code { display: inline; color: inherit; background: transparent; padding: 0; font: inherit; white-space: pre-wrap; overflow-wrap: anywhere; word-break: normal; }
 #editor .toastui-editor-contents .toastui-editor-ww-code-block { min-width: 0; margin: 23px 0; padding-top: 30px; background: var(--theme-code-bg, #243b2c); border-radius: 9px; }
 #editor .toastui-editor-contents .toastui-editor-ww-code-block pre { margin: 0; }
+/* Keep editable code in normal flow as typing and soft wrapping add rows. */
+#editor .toastui-editor-contents .toastui-editor-ww-code-block, #editor .toastui-editor-contents .toastui-editor-ww-code-block :is(pre, code) { height: auto; max-height: none; overflow: visible; }
 #editor .toastui-editor-contents .toastui-editor-ww-code-block::after { top: 5px; right: 8px; height: 20px; padding-top: 0; border-radius: 5px; font: 11px/20px Consolas, monospace; color: var(--theme-code-label-text, #dcebd6); background-color: var(--theme-code-label, #38523f); }
 #editor .toastui-editor-contents img { max-width: 100%; height: auto; border-radius: 8px; }
 #editor .toastui-editor-contents blockquote { border: 0; border-left: 3px solid var(--theme-quote-border, #9cbb87); border-radius: 0 8px 8px 0; padding: 13px 20px; margin: 23px 0; background: var(--theme-soft, #f3f7ee); color: var(--theme-muted, #70816a); }

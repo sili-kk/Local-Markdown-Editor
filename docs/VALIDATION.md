@@ -24,3 +24,22 @@
 This export is validated on Windows amd64 with Go 1.26.10 and Node.js 24. Other binaries are cross-compiled; native execution on those platforms has not been verified. Docker is not available in the validation environment, so image/container execution is not claimed. Uploaded GitHub Actions workflows will provide separate CI results.
 
 Only synthetic fixtures are used. Personal configuration, documents, logs, raw historical results and local machine paths are excluded. Passing regression tests or a cross-build is not a public Internet security assessment.
+
+
+## 2026-11-02 同步验证
+
+| 项目 | 结果 |
+| --- | --- |
+| 同步内容 | 浏览位置记忆、代码块输入修复、已有阅读模式及配套资源与回归 |
+| 仓库检查入口 | node scripts/test.mjs 通过 |
+| Go | go test ./...、go vet ./...、当前源码构建均通过 |
+| Node 与 HTTP | 118 / 118 通过，包含最终程序内嵌资源一致性检查 |
+| 发布适配 | 保留 -version、跨平台测试程序路径、Docker、CI 和发布脚本 |
+| 同步要求 | 主项目与本仓库 AGENTS.md 均要求每次修改后同步并追加 update.md |
+
+本次自动验证在 Windows 环境执行；历史发布包与版本号未重新生成。改动详情见 [update.md](../update.md)。
+
+
+### 2026-11-02 本页动态图片预览修复
+
+node scripts/test.mjs 通过，包含 Go 测试、vet、构建及121项 Node/HTTP 回归。原 Logo 页的隔离副本、深色反白、大图弹层和四种动态图片赋值方式均通过；未出现图片 CSP 违规或 /H/ 根路径请求。旧响应不覆盖新的图片来源。详见 [修复记录](HTML预览动态图片修复-2026-11-02.md)。本次任务标签页已关闭并复查，隔离进程与数据已清理。

@@ -159,7 +159,7 @@ test('最终程序隔离 HTTP：右键权限、HTML 预览边界、本机管理�
     const script = await fetch(base + '/static/library-context-menu.js'); assert.equal(script.status, 200); assert.match(await script.text(), /libraryPermissionUpdate/);
     // The isolated cwd has no web directory: verify the final EXE embeds the
     // current sorting fix, rather than serving an older build or local assets.
-    for (const asset of ['workspace-sort.js', 'app.js', 'browsing-state.js', 'resources.js', 'styles.css']) {
+    for (const asset of ['workspace-sort.js', 'app.js', 'browsing-state.js', 'resources.js', 'styles.css', 'editor-code-block.js', 'document-position.js', 'index.html']) {
       const response = await fetch(base + '/static/' + asset);
       assert.equal(response.status, 200);
       assert.equal(await response.text(), await fs.readFile(path.join(__dirname, '../web', asset), 'utf8'), 'embedded asset: ' + asset);

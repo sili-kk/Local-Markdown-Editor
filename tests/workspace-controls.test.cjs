@@ -34,7 +34,7 @@ function environment(extra = {}, stored = {}) {
   }
   const $ = id => { if (!nodes.has(id)) nodes.set(id, new Element()); return nodes.get(id); };
   const document = { body: new Element('body'), hidden: false, createElement: tag => new Element(tag), createDocumentFragment: () => new Element('fragment'), querySelectorAll: () => [], addEventListener: (event, callback) => { if (event === 'DOMContentLoaded') ready.push(callback); } };
-  const context = vm.createContext({ $, document, Event: class { constructor(type) { this.type = type; } }, window: { addEventListener: (event, callback) => { windowEvents[event] = callback; } }, localStorage: { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value) }, requestAnimationFrame: () => 1, setInterval() {}, ...extra });
+  const context = vm.createContext({ $, document, documentPosition: null, Event: class { constructor(type) { this.type = type; } }, window: { addEventListener: (event, callback) => { windowEvents[event] = callback; } }, localStorage: { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value) }, requestAnimationFrame: () => 1, setInterval() {}, ...extra });
   const load = file => vm.runInContext(fs.readFileSync(path.join(__dirname, '../web', file), 'utf8'), context);
   return { context, $, load, storage, ready, windowEvents };
 }
@@ -100,7 +100,9 @@ function tabCloseFixture({ paths = ['a.md', 'b.md', 'c.md'], current = 'b.md', c
     animateDocument: async phase => { animations.push(phase); }, setBusy() {}, resetExternalChanges() {},
     syncDocumentViewers() {}, setDocumentOutlineOpen() {}, notice() {}, status() {}, clearTimeout() {},
     updateFileHighlights: () => { highlights++; }, drawFiles: () => { redraws++; },
+    applyLibraryData: data => { state.files = data.files; },
     api: async target => { requests.push(target); if (loadError) throw Error('读取失败'); if (load) await load();
+      if (target === '/api/files') return { files: [...paths] };
       return { path: new URL('http://localhost' + target).searchParams.get('path'), content: 'next document', revision: 'new' }; },
     prepareDocumentMarkdown: value => value, createEditor: () => { creations++; assert.equal(state.editor, editor); },
     content: () => body, applyDocumentAccess() {}, showDocumentPath() {}, count() {}, mobileSidebar: { matches: false },
@@ -351,4 +353,36 @@ test('远端或文件操作开关关闭时不弹出删除确认', async () => {
     const f = deleteFixture(); f.state[flag] = false; await f.context.deleteDocument('@root/note.md');
     assert.equal(f.$('deleteConfirmDialog').open, false); assert.equal(f.requests.length, 0);
   }
+});
+
+
+// Use the actual tracker with the actual navigation queue/document replacement,
+// so unit-only position tests cannot hide a missing app.js integration call.
+function installPositionTracker(f) {
+  f.context.setTimeout = () => 1;
+  f.context.cancelAnimationFrame = () => {};
+  f.viewport.scrollLeft = 0;
+  f.viewport.addEventListener = () => {};
+  f.viewport.removeEventListener = () => {};
+  f.load('document-position.js');
+  vm.runInContext("documentPosition = createDocumentPositionTracker($('editor').querySelector(), $('editor'), path => path === state.path && !state.loading, $('editor')); documentPosition.restore(state.path);", f.context);
+  return value => { f.$('editor').handlers.wheel(); f.viewport.scrollTop = value; };
+}
+
+test('真实切换流程保存原文档位置，顶部标签切回与重新加载恢复各自位置', async () => {
+  const f = tabCloseFixture(); const browse = installPositionTracker(f);
+  browse(1842); await f.context.navigate('a.md'); assert.equal(f.viewport.scrollTop, 0);
+  browse(620); await f.context.navigate('b.md'); assert.equal(f.viewport.scrollTop, 1842);
+  browse(2410); await f.context.navigate('b.md', true); assert.equal(f.viewport.scrollTop, 2410);
+  await f.context.navigate('a.md'); assert.equal(f.viewport.scrollTop, 620);
+  assert.equal(f.requests.filter(target => target === '/api/files').length, 1);
+});
+
+test('文档读取失败保留原位置，关闭当前标签后恢复相邻文档保存的位置', async () => {
+  const failed = tabCloseFixture({ loadError: true }); const browseFailed = installPositionTracker(failed);
+  browseFailed(1550); assert.equal(await failed.context.navigate('a.md'), false);
+  assert.equal(failed.viewport.scrollTop, 1550); assert.equal(failed.state.path, 'b.md');
+  const f = tabCloseFixture({ paths: ['a.md', 'b.md'] }); const browse = installPositionTracker(f);
+  browse(1750); await f.context.navigate('a.md'); browse(880); await f.context.navigate('b.md');
+  await f.context.closeDocumentHistory('b.md'); assert.equal(f.state.path, 'a.md'); assert.equal(f.viewport.scrollTop, 880);
 });

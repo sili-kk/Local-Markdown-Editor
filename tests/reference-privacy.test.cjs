@@ -450,3 +450,60 @@ test('预览内点击原图使用图片弹层，普通链接拦截导航并提�
   f.documentHandlers.click(event); assert.match(f.body.children.at(-1).children[1].textContent, /暂不支持/);
   assert.equal(f.navigations.length, 0);
 });
+
+async function dynamicImageFixture(api) {
+  const f = fixture(async (url, options) => url === '/api/resource/html'
+    ? { path: '@0123456789abcdef/preview/index.html', content: '<h1>dynamic images</h1>' }
+    : api(url, options), '../preview/index.html');
+  f.click(); await new Promise(setImmediate);
+  const frame = f.body.children[2].children[1], messages = [];
+  frame.contentWindow = { postMessage: message => messages.push(message) };
+  const channel = Number(frame.srcdoc.slice(0, frame.srcdoc.lastIndexOf(');</script>')).split('(').at(-1));
+  return { ...f, frame, messages, channel };
+}
+
+test('动态预览图片仅接受当前沙箱消息，去重过滤后按HTML路径校验并返回内嵌图片', async () => {
+  const requests = [], f = await dynamicImageFixture(async (url, options) => {
+    requests.push({ url, ...JSON.parse(options.body) });
+    return { images: { 'H/logo-48.png': 'data:image/png;base64,aW1hZ2U=' } };
+  });
+  assert.ok(Number.isInteger(f.channel) && f.channel > 0);
+  const message = { type: 'mojian-preview-images', channel: f.channel, images: ['H/logo-48.png', 'H/logo-48.png', 'missing.png', 'https://example.org/logo.png', '//example.org/logo.png', 'script.js', null] };
+  await f.windowHandlers.message({ source: {}, data: message });
+  await f.windowHandlers.message({ source: f.frame.contentWindow, data: { ...message, channel: f.channel + 1 } });
+  assert.equal(requests.length, 0);
+  await f.windowHandlers.message({ source: f.frame.contentWindow, data: message });
+  assert.equal(requests.length, 1); assert.equal(requests[0].url, '/api/resource/html-images');
+  assert.equal(requests[0].path, f.state.path); assert.equal(requests[0].reference, '../preview/index.html');
+  assert.deepEqual(Array.from(requests[0].images), ['H/logo-48.png', 'missing.png']);
+  assert.equal(f.messages[0].images['H/logo-48.png'], 'data:image/png;base64,aW1hZ2U=');
+  assert.equal(f.messages[0].images['missing.png'], '');
+  assert.equal(f.frame.getAttribute('sandbox'), 'allow-scripts');
+  assert.match(f.frame.srcdoc, /img-src data: blob:/); assert.match(f.frame.srcdoc, /function htmlPreviewImageLoader/);
+});
+
+test('动态图片批量加载不超过接口上限，完整预览最多256个不同引用', async () => {
+  const batches = [], f = await dynamicImageFixture(async (_url, options) => { batches.push(JSON.parse(options.body).images); return { images: {} }; });
+  for (let batch = 0; batch < 9; batch++) {
+    await f.windowHandlers.message({ source: f.frame.contentWindow, data: { type: 'mojian-preview-images', channel: f.channel,
+      images: Array.from({ length: 32 }, (_, index) => batch + '/logo-' + index + '.png') } });
+  }
+  assert.equal(batches.length, 8); assert.ok(batches.every(batch => batch.length <= 32));
+  assert.equal(batches.flat().length, 256); assert.equal(f.messages.length, 9);
+  assert.equal(Object.values(f.messages.at(-1).images).filter(Boolean).length, 0);
+});
+
+test('关闭预览后中止动态图片请求，旧响应不回填新页面且错误不泄露本地路径', async () => {
+  let resolveImages, requestSignal;
+  const f = await dynamicImageFixture((_url, options) => { requestSignal = options.signal; return new Promise(resolve => { resolveImages = resolve; }); });
+  const pending = f.windowHandlers.message({ source: f.frame.contentWindow,
+    data: { type: 'mojian-preview-images', channel: f.channel, images: ['H/logo-48.png'] } });
+  f.root.handlers.resourcehide(); assert.equal(requestSignal.aborted, true);
+  resolveImages({ images: { 'H/logo-48.png': 'data:image/png;base64,b2xk' } }); await pending;
+  assert.equal(f.messages.length, 0);
+  const rejected = await dynamicImageFixture(async () => { throw Error('cannot read D:/private/logo.png'); });
+  await rejected.windowHandlers.message({ source: rejected.frame.contentWindow,
+    data: { type: 'mojian-preview-images', channel: rejected.channel, images: ['H/logo-48.png'] } });
+  assert.equal(rejected.messages[0].images['H/logo-48.png'], '');
+  assert.doesNotMatch(JSON.stringify(rejected.messages), /private|D:/);
+});
