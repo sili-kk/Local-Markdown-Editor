@@ -1,6 +1,6 @@
 # Local Markdown Editor · 屿墨笺
 
-[中文](README.md) · [Changelog](update.md) · [Testing](docs/TESTING.md) · [Releases](docs/RELEASING.md)
+[中文](README.md) · [Screenshots](#screenshots) · [Changelog](update.md) · [Testing](docs/TESTING.md) · [Releases](docs/RELEASING.md)
 
 A Go application for editing Markdown files on your own disk and sharing documents within a trusted LAN. The interface is currently in Chinese; documentation is available in Chinese and English.
 
@@ -18,6 +18,48 @@ A Go application for editing Markdown files on your own disk and sharing documen
 - In-page Markdown/HTML previews, sandbox isolation and embedded local images with zoom.
 - Viewer totals across all documents, deduplicated by IP, with document activity details.
 - Save conflict protection, change notifications, configuration reload and rotating logs.
+
+## Screenshots
+
+Captured from the running desktop interface using separate demo documents. The interface is in Chinese and offers soft green, light and dark themes.
+
+### Workspace overview
+
+The document library, multiple tabs, editing toolbar, line numbers and WYSIWYG content share one workspace.
+
+![Workspace overview with document library, document tabs and WYSIWYG editing](docs/screenshots/overview.jpg)
+
+### Feature screenshots
+
+Expand a section to view its full screenshot.
+
+<details>
+<summary><strong>Current-document search and line navigation</strong>: highlighted matches, match counts and jumps to displayed line numbers</summary>
+
+![Current-document search highlighting, match count and line-number navigation](docs/screenshots/search-and-line-jump.jpg)
+
+</details>
+
+<details>
+<summary><strong>Dark reading mode</strong>: a dedicated reading layout with pagination and previous/next controls</summary>
+
+![Dark reading mode with dedicated content layout and page navigation](docs/screenshots/reading-dark.jpg)
+
+</details>
+
+<details>
+<summary><strong>Document paths and access permissions</strong>: multiple document roots with remote read-only, read/write and hidden permissions</summary>
+
+![Document paths dialog with configured roots and remote access permissions](docs/screenshots/paths-and-permissions.jpg)
+
+</details>
+
+<details>
+<summary><strong>In-page HTML preview</strong>: view a referenced page in an isolated preview, then return to Markdown editing</summary>
+
+![Referenced HTML displayed in an isolated preview dialog](docs/screenshots/html-preview.jpg)
+
+</details>
 
 ## Native installation
 
@@ -90,6 +132,8 @@ go run ./tools/release -version v0.1.0
 ```
 
 The test runner builds the current application before running Node/HTTP tests. The release tool creates six OS/architecture archives and a checksum manifest. See [testing](docs/TESTING.md), [release instructions](docs/RELEASING.md), and [export validation](docs/VALIDATION.md).
+
+On Windows, run `.\publish_github.bat` to automatically increment the highest local or remote stable tag by one patch, or specify `.\publish_github.bat v0.1.2` (example version), then validate, commit repository changes, and atomically push `main` and a new annotated tag. The two-directory layout merges local source first. `--check` synchronizes and tests without committing or pushing. See [one-command publishing](docs/GITHUB_PUBLISH.md).
 
 ## Licensing
 

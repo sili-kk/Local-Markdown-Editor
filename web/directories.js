@@ -30,6 +30,7 @@ function applyLibraryData(data) {
   state.fileOperations = state.localAdmin && !!data.file_operations;
   state.folders = data.folders || [];
   state.fileAccess = data.file_access || {};
+  state.fileAliases = data.file_aliases || {};
   $('localPaths').hidden = !state.localAdmin;
   $('managePaths').disabled = !data.local_admin;
   syncFileOperationButtons();
@@ -53,9 +54,9 @@ async function refreshLibrary() {
   try {
     const data = await api('/api/files');
     if (pathsSaving || $('pathsDialog').open || state.navigating || state.saving || state.merging || previousPath !== state.path || previousGeneration !== libraryGeneration) return;
-    const previous = JSON.stringify([state.files, state.directories, state.libraryWarning, state.fileOperations, state.folders]);
+    const previous = JSON.stringify([state.files, state.directories, state.libraryWarning, state.fileOperations, state.folders, state.fileAliases]);
     applyLibraryData(data);
-    const changed = previous !== JSON.stringify([state.files, state.directories, state.libraryWarning, state.fileOperations, state.folders]);
+    const changed = previous !== JSON.stringify([state.files, state.directories, state.libraryWarning, state.fileOperations, state.folders, state.fileAliases]);
     if (changed) drawFiles();
     if (state.path && !state.files.includes(state.path) && dirty()) {
       if (!orphanedDraft) notice('当前文档所在路径已移除或文件不可用，网页草稿仍保留。恢复路径后可继续保存。');

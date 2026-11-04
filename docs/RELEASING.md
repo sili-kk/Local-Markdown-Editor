@@ -37,6 +37,8 @@ macOS/Windows 程序未做代码签名或公证，系统可能提示来源未知
 
 本地生成的程序包使用 GitHub 的 Release 附件上传，通常不要提交到 Git 历史。提供二进制时应一并提供相同版本对应源码与构建说明，并遵守 AGPLv3。
 
+Windows 一键合并源码、提交并推送 `main` 与新标签，可使用仓库根的 `publish_github.bat`（在 PowerShell 中为 `.\publish_github.bat`）。具体命令、`--check` 模式和本地三方合并基线见[一键合并发布说明](GITHUB_PUBLISH.md)。
+
 ## English
 
 Run `go run ./tools/release -version v0.1.0` from the repository root. It builds Windows, Linux and macOS binaries for amd64 and arm64, packages documentation and licenses, includes a corresponding source archive, and writes SHA-256 checksums in `dist/`. The build uses Go's archive libraries and needs no external packaging tools.

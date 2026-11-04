@@ -13,9 +13,20 @@ function writeBrowsingPaths(key, paths) {
 
 let recentDocuments = readBrowsingPaths('mojian.recentDocuments').slice(0, 20);
 
+function documentIdentity(path) {
+  return state.fileAliases?.[path] || path;
+}
+
+function existingDocumentPath(path) {
+  const identity = documentIdentity(path);
+  return documentHistoryPaths().find(item => documentIdentity(item) === identity) || path;
+}
+
 function rememberDocument(path) {
   state.documentsClosed = false;
   writeBrowsingPaths('mojian.closedView', []);
+  const identity = documentIdentity(path);
+  recentDocuments = [...new Set(recentDocuments.map(item => documentIdentity(item) === identity ? path : item))];
   if (!recentDocuments.includes(path)) recentDocuments = [...recentDocuments, path].slice(-20);
   writeBrowsingPaths('mojian.recentDocuments', recentDocuments);
   writeBrowsingPaths('mojian.lastDocument', [path]);
@@ -23,20 +34,30 @@ function rememberDocument(path) {
 
 function documentHistoryPaths() {
   const available = new Set(state.files);
-  return [...new Set([...recentDocuments, state.path])].filter(path => path && (available.has(path) || path === state.path));
+  const seen = new Set();
+  return [...recentDocuments, state.path]
+    .filter(path => path && (available.has(path) || path === state.path))
+    .map(path => state.path && documentIdentity(path) === documentIdentity(state.path) ? state.path : path)
+    .filter(path => {
+      const identity = documentIdentity(path);
+      if (seen.has(identity)) return false;
+      seen.add(identity);
+      return true;
+    });
 }
 
 let historyClosing = false;
 async function closeDocumentHistory(path) {
   if (historyClosing || state.navigating || state.merging) return;
   historyClosing = true;
+  const identity = documentIdentity(path);
   try {
     if (path === state.path) {
       const paths = documentHistoryPaths(), index = paths.indexOf(path);
       const next = paths[index + 1] || paths[index - 1] || '';
       if (!await navigate(next, false, { closing: true }) || state.path === path) return;
     }
-    recentDocuments = recentDocuments.filter(item => item !== path);
+    recentDocuments = recentDocuments.filter(item => documentIdentity(item) !== identity);
     writeBrowsingPaths('mojian.recentDocuments', recentDocuments);
     writeBrowsingPaths('mojian.lastDocument', state.path ? [state.path] : []);
     renderDocumentHistory();
@@ -48,7 +69,10 @@ function renderDocumentHistory(revealActive = true) {
   const list = $('documentHistoryList');
   const paths = documentHistoryPaths();
   const signature = JSON.stringify([state.path, paths.map(path => [path, displayLibraryPath(path, true)])]);
-  if (list.dataset.signature === signature) return;
+  if (list.dataset.signature === signature) {
+    revealDocumentHistory(revealActive);
+    return;
+  }
   list.dataset.signature = signature;
   const fragment = document.createDocumentFragment();
   for (const path of paths) {
@@ -86,7 +110,12 @@ function renderDocumentHistory(revealActive = true) {
     recentDocuments = mergeWorkspaceOrder([...new Set([...recentDocuments, ...documentHistoryPaths()])], order).slice(-20);
     writeBrowsingPaths('mojian.recentDocuments', recentDocuments);
   } });
+  revealDocumentHistory(revealActive);
+}
+
+function revealDocumentHistory(revealActive = true) {
   requestAnimationFrame(() => {
+    const list = $('documentHistoryList');
     updateDocumentHistoryArrows();
     if (!revealActive || workspaceSortBusy()) return;
     const active = list.querySelector('[aria-current="page"]');

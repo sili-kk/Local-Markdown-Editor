@@ -48,7 +48,7 @@ function icon(name) {
 const state = {
   path: '', revision: '', saved: '', lineEnding: '\n', trailingNewline: false,
   limits: null,
-  localAdmin: false, fileAccess: {}, readOnly: false, reading: false, revokedDraft: null,
+  localAdmin: false, fileAccess: {}, fileAliases: {}, readOnly: false, reading: false, revokedDraft: null,
   documentsClosed: readBrowsingPaths('mojian.closedView').includes('closed'),
   fileOperations: false, folders: [], deletedDocument: '', unavailablePath: '',
   files: [], directories: [], libraryWarning: '', saving: null, navigating: false, loading: false, conflict: false, merging: false,
@@ -619,7 +619,11 @@ function setBusy(busy) {
 
 function navigate(path, refresh = false, { closing = false } = {}) {
   if (state.merging) return Promise.resolve(false);
-  if (!refresh && !state.navigating && path === state.path) return Promise.resolve(true);
+  path = existingDocumentPath(path);
+  if (!refresh && !state.navigating && path === state.path) {
+    renderDocumentHistory();
+    return Promise.resolve(true);
+  }
   // 连续点击只保留最新目标；读取中的旧结果不会覆盖之后的选择。
   state.pendingNavigation = { path, refresh, closing };
   updateFileHighlights();
@@ -630,7 +634,10 @@ function navigate(path, refresh = false, { closing = false } = {}) {
       while (state.pendingNavigation) {
         const request = state.pendingNavigation;
         state.pendingNavigation = null;
-        if (!request.refresh && request.path === state.path) continue;
+        if (!request.refresh && request.path === state.path) {
+          renderDocumentHistory();
+          continue;
+        }
         state.navigationTarget = request.path;
         updateFileHighlights();
         if (!await switchDocument(request.path, request.refresh, { closing: request.closing })) {
@@ -676,6 +683,7 @@ async function switchDocument(path, refresh, { closing = false } = {}) {
       }
       if (!state.files.includes(path) && (path || !state.documentsClosed)) path = readBrowsingPaths('mojian.lastDocument').find(item => state.files.includes(item)) || [...recentDocuments].reverse().find(item => state.files.includes(item)) || state.files[0] || '';
     }
+    path = existingDocumentPath(path);
     if (state.pendingNavigation) return true;
     if (!path) {
       if (state.path && !closing) await animateDocument('out');

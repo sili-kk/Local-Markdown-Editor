@@ -1,6 +1,6 @@
 # 屿墨笺 · Local Markdown Editor
 
-[English](README.en.md) · [更新记录](update.md) · [原生运行](#原生运行) · [Docker](#docker-compose) · [测试](docs/TESTING.md) · [Release](docs/RELEASING.md)
+[English](README.en.md) · [页面预览](#页面与功能截图) · [更新记录](update.md) · [原生运行](#原生运行) · [Docker](#docker-compose) · [测试](docs/TESTING.md) · [Release](docs/RELEASING.md)
 
 一个使用 Go 构建的本地 Markdown 编辑器：直接编辑磁盘上的文档，也可在可信局域网内共享。
 
@@ -20,6 +20,48 @@
 - 版本冲突保护、变更通知、配置热加载和日志轮转。
 
 界面目前为中文，说明文档提供中英文版本。
+
+## 页面与功能截图
+
+以下截图来自实际运行的桌面界面，使用独立演示文档；主题可在柔绿、明亮和黑暗之间切换。
+
+### 页面总览
+
+文档库、多个文档页签、编辑工具栏、行号和 Markdown 正文集中在同一工作区中。
+
+![屿墨笺页面总览：左侧文档库、顶部文档页签与所见即所得编辑区](docs/screenshots/overview.jpg)
+
+### 功能截图
+
+展开查看各项功能的完整截图。
+
+<details>
+<summary><strong>本页搜索与行号跳转</strong>：高亮命中文字、切换匹配并按显示行号定位</summary>
+
+![本页搜索与行号跳转：正文搜索高亮、匹配计数及行号定位工具](docs/screenshots/search-and-line-jump.jpg)
+
+</details>
+
+<details>
+<summary><strong>深色阅读模式</strong>：独立阅读排版、分页与上一页／下一页操作</summary>
+
+![深色阅读模式：独立正文排版与分页导航](docs/screenshots/reading-dark.jpg)
+
+</details>
+
+<details>
+<summary><strong>路径与访问权限</strong>：管理多个文档目录，设置远端只读、读写与隐藏范围</summary>
+
+![路径与访问权限：文档目录配置和远端权限列表](docs/screenshots/paths-and-permissions.jpg)
+
+</details>
+
+<details>
+<summary><strong>本页 HTML 预览</strong>：在隔离预览窗口中查看引用页面，关闭后继续编辑</summary>
+
+![本页 HTML 预览：Markdown 引用页面在独立沙箱弹窗中显示](docs/screenshots/html-preview.jpg)
+
+</details>
 
 ## 原生运行
 
@@ -105,6 +147,8 @@ go run ./tools/release -version v0.1.0
 ```
 
 测试脚本先运行 Go 测试和静态检查、构建程序，再运行 Node/HTTP 回归。发布工具生成 6 个系统/架构压缩包及 SHA-256 校验文件。详见[测试说明](docs/TESTING.md)、[发布说明](docs/RELEASING.md)和[本次导出验证](docs/VALIDATION.md)。
+
+Windows 直接运行 `.\publish_github.bat` 会按本地与远端最高正式标签自动递增补丁版本，也可用 `.\publish_github.bat v0.1.2` 手动指定（版本号仅为示例）；检查后提交仓库改动并原子推送 `main` 与新附注标签；双目录布局先合并主目录源码。`--check` 仅同步与检查，不提交或推送。详见[一键合并发布说明](docs/GITHUB_PUBLISH.md)。
 
 ## 许可与第三方组件
 

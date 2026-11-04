@@ -381,10 +381,20 @@ func (a *application) files(w http.ResponseWriter, r *http.Request) {
 	access := map[string]string{}
 	visible := make([]string, 0, len(files))
 	visibleRoots := map[string]bool{}
+	documentPaths := map[string]string{}
+	aliases := map[string]string{}
 	for _, file := range files {
 		path, _, err := a.documentCandidate(file, true)
 		if err != nil || !a.readable(r, path) {
 			continue
+		}
+		// Overlapping roots and individually configured files can name the same
+		// document. Only expose aliases after checking this request's access.
+		key := directoryKey(path)
+		if existing, ok := documentPaths[key]; ok {
+			aliases[file] = existing
+		} else {
+			documentPaths[key] = file
 		}
 		visible = append(visible, file)
 		access[file] = a.requestAccess(r, path)
@@ -414,9 +424,10 @@ func (a *application) files(w http.ResponseWriter, r *http.Request) {
 		Warnings       []string          `json:"warnings"`
 		Limits         documentLimits    `json:"limits"`
 		FileAccess     map[string]string `json:"file_access"`
+		FileAliases    map[string]string `json:"file_aliases,omitempty"`
 		FileOperations bool              `json:"file_operations"`
 		Folders        []string          `json:"folders,omitempty"`
-	}{state, files, warnings, a.documentLimits(), access, a.fileOperationsAllowed(r), folders})
+	}{state, files, warnings, a.documentLimits(), access, aliases, a.fileOperationsAllowed(r), folders})
 }
 
 // These directories contain dependencies/repository internals, often tens of

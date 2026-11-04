@@ -85,6 +85,43 @@ test('路径保存后并发刷新：依赖跳过、共享列表、空目录权�
     assert.equal((await request('/api/file?path=' + encodeURIComponent(nestedPath), 'GET', null, true)).access, 'r');
     await saveRules([{ path: root + '/empty', access: 'none' }]);
     assert.deepEqual((await request('/api/files', 'GET', null, true)).files, []);
+
+    // All visible paths to one physical file share a tab identity. A matching
+    // basename in another directory must remain a separate document.
+    const nestedFile = path.join(docs, 'empty', 'deep', 'nested.md');
+    await fs.mkdir(path.join(docs, 'other'));
+    await fs.writeFile(path.join(docs, 'other', 'nested.md'), 'different document');
+    config = await request('/api/directories', 'PUT', {
+      paths: [docs, path.join(docs, 'empty'), path.join(docs, 'empty', 'deep'), nestedFile],
+      names: ['Notes', 'Child', 'Grandchild', 'Single file'],
+      permissions: { default: 'rw', rules: [] }, config_revision: config.config_revision,
+    });
+    const aliases = [config.directories[0].id + '/empty/deep/nested.md', config.directories[1].id + '/deep/nested.md',
+      config.directories[2].id + '/nested.md', config.directories[3].id + '/nested.md'];
+    const different = config.directories[0].id + '/other/nested.md';
+    for (const remoteAccess of [false, true]) {
+      const listing = await request('/api/files', 'GET', null, remoteAccess);
+      const identity = virtual => listing.file_aliases?.[virtual] || virtual;
+      assert.ok(aliases.every(virtual => listing.files.includes(virtual)));
+      assert.equal(new Set(aliases.map(identity)).size, 1, 'overlapping roots and single-file root share identity');
+      assert.notEqual(identity(different), identity(aliases[0]), 'same basename is a different file');
+      for (const [alias, canonical] of Object.entries(listing.file_aliases)) {
+        assert.ok(listing.files.includes(alias) && listing.files.includes(canonical), 'only visible virtual paths are returned');
+      }
+      if (remoteAccess) {
+        assert.ok(listing.directories.every(directory => !directory.path));
+        assert.ok(!JSON.stringify(listing).includes(temporary), 'aliases do not disclose filesystem paths');
+      }
+    }
+    config = await request('/api/directories', 'PUT', {
+      paths: config.directories.map(directory => directory.path), names: config.directories.map(directory => directory.name),
+      permissions: { default: 'rw', rules: [{ path: aliases[0], access: 'none' }] }, config_revision: config.config_revision,
+    });
+    const filtered = await request('/api/files', 'GET', null, true);
+    assert.ok(aliases.every(virtual => !filtered.files.includes(virtual)));
+    assert.ok(Object.entries(filtered.file_aliases || {}).every(([alias, canonical]) => !aliases.includes(alias) && !aliases.includes(canonical)),
+      'hidden documents do not appear in alias metadata');
+
   } finally {
     if (child && child.exitCode === null) { child.kill(); await once(child, 'exit'); }
     await fs.rm(temporary, { recursive: true, force: true });

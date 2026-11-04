@@ -89,12 +89,12 @@ test('真实文档切换流程关闭末项会清空正文与地址，刷新时�
 
 // Exercise the real close handler, navigation queue and document switch together.
 // A full library redraw or transition here caused the apparent page refresh.
-function tabCloseFixture({ paths = ['a.md', 'b.md', 'c.md'], current = 'b.md', canSave = true, loadError = false, load } = {}) {
+function tabCloseFixture({ paths = ['a.md', 'b.md', 'c.md'], current = 'b.md', historyPaths = paths, aliases = {}, canSave = true, loadError = false, load } = {}) {
   let body = 'draft', url = '?file=' + current, redraws = 0, highlights = 0, saves = 0, creations = 0;
   const requests = [], animations = [], viewport = { scrollTop: 123 };
   const editor = { setMarkdown: value => { body = value; }, setScrollTop() {} };
   const state = { path: current, saved: 'old', revision: 'old', files: [...paths], editor, imageViews: new Set(),
-    localAdmin: true, fileAccess: {}, pendingNavigation: null, navigating: false, navigationTarget: '' };
+    localAdmin: true, fileAccess: {}, fileAliases: aliases, pendingNavigation: null, navigating: false, navigationTarget: '' };
   const f = environment({ state, displayLibraryPath: value => value, documentEventGeneration: 0,
     flush: async () => { saves++; if (canSave) state.saved = body; return canSave; }, dirty: () => body !== state.saved,
     animateDocument: async phase => { animations.push(phase); }, setBusy() {}, resetExternalChanges() {},
@@ -109,7 +109,7 @@ function tabCloseFixture({ paths = ['a.md', 'b.md', 'c.md'], current = 'b.md', c
     history: { replaceState: (_state, _unused, next) => { url = next; } },
     // Any browser navigation or page reload would fail this regression.
     location: { pathname: '/', reload() { throw Error('Unexpected page reload'); }, set href(value) { throw Error('Unexpected navigation'); } },
-  }, { 'mojian.recentDocuments': JSON.stringify(paths) });
+  }, { 'mojian.recentDocuments': JSON.stringify(historyPaths) });
   f.$('editor').querySelector = () => viewport;
   f.load('browsing-state.js'); f.load('workspace-sort.js');
   const source = fs.readFileSync(path.join(__dirname, '../web/app.js'), 'utf8');
@@ -385,4 +385,79 @@ test('文档读取失败保留原位置，关闭当前标签后恢复相邻文�
   const f = tabCloseFixture({ paths: ['a.md', 'b.md'] }); const browse = installPositionTracker(f);
   browse(1750); await f.context.navigate('a.md'); browse(880); await f.context.navigate('b.md');
   await f.context.closeDocumentHistory('b.md'); assert.equal(f.state.path, 'a.md'); assert.equal(f.viewport.scrollTop, 880);
+});
+
+
+test('重复打开当前文件只定位原页签，保留草稿、正文位置且不触发保存或读取', async () => {
+  for (const bounds of [{ left: -80, right: 20, expected: 120 }, { left: 450, right: 550, expected: 350 }]) {
+    const f = tabCloseFixture();
+    const list = f.$('documentHistoryList'), tabs = [...list.children];
+    const active = list.querySelector('[aria-current="page"]');
+    list.scrollLeft = 200;
+    list.getBoundingClientRect = () => ({ left: 0, right: 400 });
+    active.getBoundingClientRect = () => bounds;
+    f.context.requestAnimationFrame = callback => { callback(); return 1; };
+    assert.equal(await f.context.navigate('b.md'), true);
+    assert.equal(list.scrollLeft, bounds.expected);
+    assert.deepEqual(list.children, tabs); assert.equal(f.state.path, 'b.md');
+    assert.equal(f.body, 'draft'); assert.equal(f.state.saved, 'old');
+    assert.equal(f.viewport.scrollTop, 123); assert.equal(f.state.editor, f.editor);
+    assert.equal(f.saves, 0); assert.equal(f.creations, 0);
+    assert.deepEqual(f.requests, []); assert.deepEqual(f.animations, []);
+  }
+});
+
+test('从其他文档重新打开已有文件时激活原页签并保留页签顺序和数量', async () => {
+  const f = tabCloseFixture();
+  assert.equal(await f.context.navigate('a.md'), true);
+  f.context.renderDocumentHistory();
+  const list = f.$('documentHistoryList');
+  assert.deepEqual(list.children.map(item => item.dataset.path), ['a.md', 'b.md', 'c.md']);
+  assert.equal(list.querySelector('[aria-current="page"]').dataset.path, 'a.md');
+  assert.deepEqual(JSON.parse(f.storage.get('mojian.recentDocuments')), ['a.md', 'b.md', 'c.md']);
+  assert.deepEqual(f.requests, ['/api/file?path=a.md']);
+});
+
+test('同一文件的目录、子目录与单文件入口复用当前页签，旧重复项只显示一个', async () => {
+  const paths = ['@parent/sub/note.md', '@child/note.md', '@single/note.md', '@other/note.md'];
+  const f = tabCloseFixture({ paths, current: paths[1], aliases: { [paths[1]]: paths[0], [paths[2]]: paths[0] } });
+  assert.deepEqual(Array.from(f.context.documentHistoryPaths()), [paths[1], paths[3]]);
+  for (const target of paths.slice(0, 3)) assert.equal(await f.context.navigate(target), true);
+  assert.equal(f.state.path, paths[1]); assert.equal(f.body, 'draft'); assert.equal(f.state.saved, 'old');
+  assert.equal(f.viewport.scrollTop, 123); assert.equal(f.saves, 0); assert.deepEqual(f.requests, []);
+  assert.deepEqual(f.$('documentHistoryList').children.map(item => item.dataset.path), [paths[1], paths[3]]);
+  await f.context.closeDocumentHistory(paths[1]);
+  assert.equal(f.state.path, paths[3]);
+  assert.deepEqual(JSON.parse(f.storage.get('mojian.recentDocuments')), [paths[3]]);
+  assert.deepEqual(f.$('documentHistoryList').children.map(item => item.dataset.path), [paths[3]]);
+});
+
+test('从其他文档打开相同文件的另一入口时切回已有路径，不新增页签', async () => {
+  const f = tabCloseFixture({ paths: ['a.md', 'b.md', 'alias/a.md'], historyPaths: ['a.md', 'b.md'], aliases: { 'alias/a.md': 'a.md' } });
+  assert.equal(await f.context.navigate('alias/a.md'), true);
+  f.context.renderDocumentHistory();
+  assert.equal(f.state.path, 'a.md'); assert.equal(f.saves, 1);
+  assert.deepEqual(f.requests, ['/api/file?path=a.md']);
+  assert.deepEqual(f.$('documentHistoryList').children.map(item => item.dataset.path), ['a.md', 'b.md']);
+  assert.deepEqual(JSON.parse(f.storage.get('mojian.recentDocuments')), ['a.md', 'b.md']);
+});
+
+test('历史中已有多个文件入口时保留首次页签位置，记忆和关闭不会留下重复项', () => {
+  const f = historyFixture(['a.md', 'b.md', 'alias/a.md', 'c.md'], 'b.md');
+  f.state.fileAliases = { 'alias/a.md': 'a.md' };
+  f.context.rememberDocument('alias/a.md');
+  assert.deepEqual(JSON.parse(f.storage.get('mojian.recentDocuments')), ['alias/a.md', 'b.md', 'c.md']);
+});
+
+test('不同目录的同名文件各有页签，读取或保存失败时不误切换已有页签', async () => {
+  const f = tabCloseFixture({ paths: ['one/note.md', 'two/note.md'], current: 'one/note.md', historyPaths: ['one/note.md'] });
+  assert.equal(await f.context.navigate('two/note.md'), true);
+  f.context.renderDocumentHistory();
+  assert.deepEqual(f.$('documentHistoryList').children.map(item => item.dataset.path), ['one/note.md', 'two/note.md']);
+  for (const options of [{ canSave: false }, { loadError: true }]) {
+    const failed = tabCloseFixture({ ...options, paths: ['a.md', 'b.md', 'alias/a.md'], historyPaths: ['a.md', 'b.md'], aliases: { 'alias/a.md': 'a.md' } });
+    assert.equal(await failed.context.navigate('alias/a.md'), false);
+    assert.equal(failed.state.path, 'b.md'); assert.equal(failed.body, 'draft');
+    assert.deepEqual(failed.$('documentHistoryList').children.map(item => item.dataset.path), ['a.md', 'b.md']);
+  }
 });
