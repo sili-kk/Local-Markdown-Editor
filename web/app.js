@@ -453,7 +453,7 @@ function createEditor() {
       ['heading', 'bold', 'italic', 'strike'], ['hr', 'quote'],
       ['ul', 'ol', 'task', 'indent', 'outdent'], ['table', 'image', 'link'], ['code', 'codeblock'],
     ],
-    plugins: [...tableEditorPlugins(), markdownShortcutsPlugin, editorCodeBlockPlugin, editorEndClickPlugin, editorLineNumbersPlugin, editorSearchPlugin, localImagesPlugin, localMarkdownLinksPlugin],
+    plugins: [...tableEditorPlugins(), markdownShortcutsPlugin, editorCodeBlockPlugin, editorEndClickPlugin, editorLineNumbersPlugin, editorSearchPlugin, inlineCodeLinksPlugin, localImagesPlugin, localMarkdownLinksPlugin],
   });
   state.editor.on('change', onChange);
   // 独立于格式按钮的折叠菜单，始终固定在编辑工具栏最右侧。
@@ -467,6 +467,7 @@ function createEditor() {
   new MutationObserver(decorateToolbar).observe(toolbar, { childList: true, subtree: true });
   const root = $('editor');
   installResourceInteractions(root);
+  installInlineCodeLinkInteractions(root);
   installDocumentOutline(root);
   const scrollViewport = root.querySelector('.toastui-editor-ww-container > .toastui-editor');
   scrollViewport.addEventListener('scroll', scheduleScrollNavigation, { passive: true });
@@ -486,16 +487,19 @@ function createEditor() {
   });
   root.addEventListener('compositionend', () => { state.composing = false; onChange(); });
   root.addEventListener('click', event => {
-    if (!(event.ctrlKey || event.metaKey)) return;
+    if (event.button !== 0 || event.altKey || event.shiftKey) return;
     const link = event.target.closest('a[href]');
     if (!link) return;
-    event.preventDefault();
-    event.stopPropagation();
     const href = link.getAttribute('href');
     if (!href || href.startsWith('#')) return;
-    const address = resourceAddress(href);
+    let address;
+    try { address = resourceAddress(href); } catch { return; }
     const url = address.target || new URL(address.url, location.origin);
     if (address.local && !address.target) return;
+    const webLink = !address.local && ['http:', 'https:'].includes(url.protocol);
+    if (!webLink && !(event.ctrlKey || event.metaKey)) return;
+    event.preventDefault();
+    event.stopPropagation();
     if (url.origin === location.origin && url.pathname.startsWith('/assets/') && /\.m(?:d|arkdown)$/i.test(url.pathname)) {
       navigate(decodeURIComponent(url.pathname.slice('/assets/'.length)));
     } else if (['http:', 'https:', 'mailto:'].includes(url.protocol)) {

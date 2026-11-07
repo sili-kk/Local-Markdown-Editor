@@ -34,7 +34,16 @@
 | 仓库专用内容 | 仅存在于仓库的版本、跨平台适配、英文说明、Docker、CI、发布工具、许可证等保留；源目录没有这些文件时不会删除它们。 |
 | 本机数据 | 不同步实际 `config.yaml`、个人文档、日志、缓存、构建产物、`docs/access`、`docs/security`、`docs/resources`、`docs/concurrency` 等本机测试结果；拒绝跟随符号链接和目录联接。 |
 
-同步使用上次已确认的主目录源码作为基线，把主目录本次改动合并到仓库当前文件。主目录未变化时，仓库独有改动不受影响。所有文件先计算合并结果；任一文件冲突时，本轮同步不写入仓库，列出文件并停止发布。手动在仓库文件中合并冲突后重新运行即可。
+同步使用上次已确认的主目录源码作为基线，把主目录本次改动合并到仓库当前文件。主目录未变化时，仓库独有改动不受影响。所有文件先计算合并结果；任一文件冲突时，本轮同步不写入仓库，列出文件并停止发布。手动在仓库文件中合并冲突并核对后，需要登记已完成合并的文件，再重新运行发布。两端因公开说明或跨平台适配继续保留不同内容时，单纯重跑无法自动判断人工合并已经完成。
+
+例如已将主目录本次改动合入公开 README，并保留仓库原有结构后，从主目录执行：
+
+```powershell
+node scripts\sync-source.mjs --source . --accept-merge README.md
+publish_github.bat --check
+```
+
+`--accept-merge` 表示指定文件已经由你或代理核对并人工合并，不会替你合并或覆盖该文件；它只登记指定文件的当前源版本，不重置整个同步基线。多文件可重复传入该参数，文件必须存在于两端且属于源码同步范围。其他文件仍按正常规则同步；若还有未解决冲突，本轮仓库文件和基线均不写入。确认检查通过后，再按正常方式发布。
 
 基线保存在目标仓库的 `.git/mojian-publish-sync/source-base.json`，只供本机合并使用，不会提交或推送，也不包含凭据。
 
@@ -64,4 +73,4 @@ node scripts\sync-source.mjs --source . --init
 
 Run `publish_github.bat [version] [--check]` on Windows. In the two-directory project layout it first merges source changes into `github/Local-Markdown-Editor`, preserving repository adaptations with a local three-way merge baseline. With no version argument, it automatically increments the highest local or remote stable version by one patch (or starts at `v0.1.0`), without prompting. It then runs the project checks, commits all non-ignored repository changes, creates an annotated version tag, and atomically pushes only `main` and that tag to `origin`. Inside a standalone clone it publishes that clone directly.
 
-`--check` still synchronizes local files and runs tests, but never stages, commits, tags or pushes. Review intentional differences before initializing a new local baseline with `node scripts/sync-source.mjs --source . --init`. Tests use temporary local repositories and bare remotes, never GitHub.
+`--check` still synchronizes local files and runs tests, but never stages, commits, tags or pushes. After manually merging a conflicted file while retaining public adaptations, record the reviewed result with `node scripts/sync-source.mjs --source . --accept-merge README.md`, then rerun `publish_github.bat --check`. This accepts only the named files; any remaining conflict still aborts without changing files or the baseline. Review intentional differences before initializing a new local baseline with `node scripts/sync-source.mjs --source . --init`. Tests use temporary local repositories and bare remotes, never GitHub.

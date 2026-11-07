@@ -6,14 +6,29 @@ import { spawnSync } from 'node:child_process';
 
 // Local source snapshots live in .git, never in the public repository or a pushed ref.
 const args = process.argv.slice(2);
-const initialize = args.includes('--init');
-const sourceArgument = args.indexOf('--source');
-if (sourceArgument < 0 || !args[sourceArgument + 1] || args.some((arg, index) =>
-  index !== sourceArgument && index !== sourceArgument + 1 && arg !== '--init')) {
-  console.error('Usage: node scripts/sync-source.mjs --source <project-directory> [--init]');
+let initialize = false, sourceArgument;
+const acceptedNames = new Set();
+function usage() {
+  console.error('Usage: node scripts/sync-source.mjs --source <project-directory> [--init | --accept-merge <file> ...]');
   process.exit(1);
 }
-const source = fs.realpathSync(path.resolve(args[sourceArgument + 1]));
+for (let index = 0; index < args.length; index++) {
+  const argument = args[index];
+  if (argument === '--init' && !initialize) { initialize = true; continue; }
+  if (argument !== '--source' && argument !== '--accept-merge') usage();
+  const value = args[++index];
+  if (!value || value.startsWith('-')) usage();
+  if (argument === '--source') {
+    if (sourceArgument !== undefined) usage();
+    sourceArgument = value;
+  } else {
+    const name = value.replace(/\\/g, '/');
+    if (acceptedNames.has(name)) usage();
+    acceptedNames.add(name);
+  }
+}
+if (!sourceArgument || initialize && acceptedNames.size) usage();
+const source = fs.realpathSync(path.resolve(sourceArgument));
 const repository = path.resolve(source, 'github/Local-Markdown-Editor');
 
 function git(args, options = {}) {
@@ -106,11 +121,18 @@ try {
   if (initialize && fs.existsSync(stateFile)) throw new Error('A sync baseline already exists; refusing to replace it.');
   const previous = fs.existsSync(stateFile) ? JSON.parse(fs.readFileSync(stateFile, 'utf8')) : { schema: 1, files: {} };
   if (previous.schema !== 1 || !previous.files || Array.isArray(previous.files)) throw new Error('Unsupported sync baseline.');
-  const names = [...new Set([...enumerate(source), ...Object.keys(previous.files)])].sort();
+  if (acceptedNames.size && !fs.existsSync(stateFile)) throw new Error('No sync baseline exists; review first-time setup and use --init.');
+  for (const name of acceptedNames) {
+    if (readChecked(source, name) === null || readChecked(repository, name) === null) {
+      throw new Error('--accept-merge requires an existing source and public file: ' + name);
+    }
+  }
+  const names = [...new Set([...enumerate(source), ...Object.keys(previous.files), ...acceptedNames])].sort();
   const next = { schema: 1, files: {} };
   const changes = [];
   const conflicts = [];
   const preserved = [];
+  const accepted = [];
   for (const name of names) {
     const incoming = readChecked(source, name);
     const current = readChecked(repository, name);
@@ -123,6 +145,9 @@ try {
       continue;
     }
     if (incoming !== null) next.files[name] = incoming.toString('base64');
+    // Explicitly record a reviewed manual merge without replacing its public
+    // adaptation. Any other unresolved conflict still aborts the whole sync.
+    if (acceptedNames.has(name)) { accepted.push(name); continue; }
     // An unchanged source must never overwrite edits made only in the public repository.
     if (equal(incoming, base) || equal(incoming, current)) continue;
     if (equal(current, base)) { changes.push({ name, data: incoming }); continue; }
@@ -134,7 +159,7 @@ try {
   }
   if (conflicts.length) {
     throw new Error('Source synchronization conflicts; NO repository files were changed:\n' + conflicts.map(name => `  ${name}`).join('\n') +
-      '\nMerge these files into the public repository manually, then rerun. For first-time setup only, review intentional differences and use --init.');
+      '\nAfter manually merging and reviewing each file in the public repository, record it with node scripts/sync-source.mjs --source <project-directory> --accept-merge <file> (repeat the flag for multiple files), then rerun publishing. For first-time setup only, review intentional differences and use --init.');
   }
   for (const { name, data } of changes) {
     // Recheck the path immediately before writing or deleting an allowlisted ordinary file.
@@ -147,7 +172,7 @@ try {
   const temporaryState = `${stateFile}.${process.pid}.tmp`;
   fs.writeFileSync(temporaryState, JSON.stringify(next), { flag: 'wx' });
   fs.renameSync(temporaryState, stateFile);
-  console.log(JSON.stringify({ initialized: initialize, changed: changes.map(change => change.name), preserved }));
+  console.log(JSON.stringify({ initialized: initialize, changed: changes.map(change => change.name), preserved, accepted }));
 } catch (error) {
   console.error(error.message);
   process.exit(1);

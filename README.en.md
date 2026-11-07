@@ -9,7 +9,7 @@ A Go application for editing Markdown files on your own disk and sharing documen
 
 ## Features
 
-- WYSIWYG editing, tables, code blocks, images, links and automatic saves.
+- WYSIWYG editing, tables, code blocks, images, links and automatic saves. Click external HTTP/HTTPS links to open them in a new browser tab. Complete web URLs in inline code are also clickable in editing and reading modes without changing the Markdown.
 - Multiple document roots, tabs, outline, sorting and local file management.
 - Adjustable line numbers, line jumps, current-document search and highlighting.
 - Per-document reading positions restored after refresh, reload or switching tabs.

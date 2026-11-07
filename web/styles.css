@@ -475,3 +475,7 @@ nav .empty { padding: 40px 10px; font-size: 12px; }
 #mergeProgress { margin-right: auto; font-size: 12px; color: var(--text); }
 @media(max-width: 580px) { .merge-versions { grid-template-columns: minmax(0, 1fr); } .merge-heading, .merge-actions { padding: 18px; } #mergeConflicts { padding: 8px 12px; } #mergeProgress { flex-basis: 100%; } }
 @media(prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+
+/* URL-only inline code stays monospace while exposing link interaction. */
+.inline-code-link { color: var(--theme-accent, #4f8051); cursor: pointer; text-decoration: underline; text-underline-offset: 4px; }
+.inline-code-link:focus-visible { outline: 2px solid var(--theme-focus, #709c7c); outline-offset: 3px; border-radius: 3px; }

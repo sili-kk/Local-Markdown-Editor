@@ -125,6 +125,72 @@ test('a conflicting merge changes no target files and retains the previous sourc
   assert.ok(fs.existsSync(path.join(f.repository, 'web/added.js')));
 });
 
+test('manual merge acknowledgement preserves a distinct public README and allows normal reruns', t => {
+  const f = fixture(t); f.initialize();
+  f.write(f.source, 'README.md', '# Detailed local guide\n\nClick web URLs and inline code URLs.\n');
+  const publicText = '# Compact public guide\n\nWeb and inline code URLs are clickable.\n\nDocker instructions retained.\n';
+  f.write(f.repository, 'README.md', publicText);
+  const baselinePath = path.join(f.repository, '.git/mojian-publish-sync/source-base.json');
+  const before = JSON.parse(fs.readFileSync(baselinePath, 'utf8'));
+  assert.notEqual(f.sync().status, 0);
+  const result = f.sync('--accept-merge', 'README.md');
+  assert.equal(result.status, 0, result.stderr + result.stdout);
+  assert.deepEqual(JSON.parse(result.stdout).accepted, ['README.md']);
+  assert.equal(fs.readFileSync(path.join(f.repository, 'README.md'), 'utf8'), publicText);
+  const after = JSON.parse(fs.readFileSync(baselinePath, 'utf8'));
+  assert.equal(Buffer.from(after.files['README.md'], 'base64').toString(), fs.readFileSync(path.join(f.source, 'README.md'), 'utf8'));
+  for (const name of Object.keys(before.files).filter(name => name !== 'README.md')) assert.equal(after.files[name], before.files[name]);
+  assert.deepEqual(JSON.parse(f.sync().stdout).changed, []);
+  f.write(f.source, 'web/next-feature.js', 'const nextFeature = true;\n');
+  assert.equal(f.sync().status, 0);
+  assert.equal(fs.readFileSync(path.join(f.repository, 'README.md'), 'utf8'), publicText);
+  assert.ok(fs.existsSync(path.join(f.repository, 'web/next-feature.js')));
+});
+
+test('manual merge acknowledgement still aborts atomically on any other unresolved conflict', t => {
+  const f = fixture(t); f.initialize();
+  f.write(f.source, 'README.md', '# Local updated guide\n');
+  f.write(f.repository, 'README.md', '# Reviewed public guide\n');
+  f.write(f.source, 'main.go', 'source changes\n');
+  f.write(f.repository, 'main.go', 'public changes\n');
+  f.write(f.source, 'web/added.js', 'pending\n');
+  const baselinePath = path.join(f.repository, '.git/mojian-publish-sync/source-base.json');
+  const baseline = fs.readFileSync(baselinePath);
+  const failed = f.sync('--accept-merge', 'README.md');
+  assert.notEqual(failed.status, 0); assert.match(failed.stderr, /main\.go/);
+  assert.match(failed.stderr, /--accept-merge/);
+  assert.ok(fs.readFileSync(baselinePath).equals(baseline));
+  assert.ok(!fs.existsSync(path.join(f.repository, 'web/added.js')));
+  assert.equal(fs.readFileSync(path.join(f.repository, 'main.go'), 'utf8'), 'public changes\n');
+  f.write(f.repository, 'main.go', 'reviewed source changes plus public adaptations\n');
+  const accepted = f.sync('--accept-merge', 'README.md', '--accept-merge', 'main.go');
+  assert.equal(accepted.status, 0, accepted.stderr + accepted.stdout);
+  assert.deepEqual(JSON.parse(accepted.stdout).accepted, ['README.md', 'main.go']);
+  assert.equal(fs.readFileSync(path.join(f.repository, 'main.go'), 'utf8'), 'reviewed source changes plus public adaptations\n');
+  assert.ok(fs.existsSync(path.join(f.repository, 'web/added.js')));
+  assert.equal(f.sync().status, 0);
+});
+
+test('manual merge acknowledgement rejects missing baselines, private paths and invalid arguments without writes', t => {
+  const f = fixture(t);
+  assert.notEqual(f.sync('--accept-merge', 'README.md').status, 0);
+  assert.ok(!fs.existsSync(path.join(f.repository, '.git/mojian-publish-sync/source-base.json')));
+  f.initialize();
+  const baselinePath = path.join(f.repository, '.git/mojian-publish-sync/source-base.json');
+  const baseline = fs.readFileSync(baselinePath);
+  f.write(f.source, 'config.yaml', 'private source\n'); f.write(f.repository, 'config.yaml', 'private public\n');
+  const publicReadme = fs.readFileSync(path.join(f.repository, 'README.md'));
+  for (const args of [
+    ['--accept-merge'], ['--accept-merge', '../README.md'], ['--accept-merge', 'config.yaml'],
+    ['--accept-merge', 'web/missing.js'], ['--init', '--accept-merge', 'README.md'],
+    ['--accept-merge', 'README.md', '--accept-merge', 'README.md'], ['--init', '--init'],
+  ]) {
+    assert.notEqual(f.sync(...args).status, 0, args.join(' '));
+    assert.ok(fs.readFileSync(baselinePath).equals(baseline));
+    assert.ok(fs.readFileSync(path.join(f.repository, 'README.md')).equals(publicReadme));
+  }
+});
+
 test('fresh setup refuses to assume differing source and public files are equivalent', t => {
   const f = fixture(t);
   f.write(f.repository, 'README.md', '# Adapted public README\n');

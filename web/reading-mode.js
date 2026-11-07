@@ -92,6 +92,7 @@ function syncReadingDocument() {
       usageStatistics: false, frontMatter: true, plugins: tableEditorPlugins(),
       linkAttributes: { target: '_blank', rel: 'noopener noreferrer' },
     });
+    decorateReaderCodeLinks($('readerContent'));
     readingLayout.path = state.path; readingLayout.markdown = markdown;
     // Only the viewer DOM uses resolved resource URLs; Markdown stays untouched.
     for (const image of $('readerContent').querySelectorAll('img[src]')) {
@@ -161,6 +162,7 @@ function initReadingMode() {
   $('readerOutline').onclick = () => setDocumentOutlineOpen($('documentOutline').hidden);
   $('readerPrevious').onclick = () => goToReaderPage(readingLayout.page - 1);
   $('readerNext').onclick = () => goToReaderPage(readingLayout.page + 1);
+  installInlineCodeLinkInteractions(viewport);
   viewport.addEventListener('click', followReaderLink);
   viewport.addEventListener('load', scheduleReaderLayout, true);
   viewport.addEventListener('error', scheduleReaderLayout, true);
