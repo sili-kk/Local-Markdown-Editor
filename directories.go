@@ -251,23 +251,23 @@ func (a *application) directories(w http.ResponseWriter, r *http.Request) {
 	}
 	priorRoots, err := prepareDirectories(priorConfig.DocsDir, false)
 	if err != nil {
-		fileError(w, err)
-		return
+		// The last applied roots keep their IDs even when an old directory was
+		// moved/deleted. Only use them for the same configuration revision.
+		previous := a.directorySnapshot()
+		if previous.Revision != revision(data) {
+			fileError(w, err)
+			return
+		}
+		priorRoots = previous.Directories
 	}
-	priorPolicy, err := prepareAccess(priorConfig, priorRoots)
+	permissions := priorConfig.Permissions
+	if payload.Permissions != nil {
+		permissions = *payload.Permissions
+	}
+	permissions, err = retainedDirectoryPermissions(permissions, priorRoots, roots, a.configPath)
 	if err != nil {
 		writeError(w, 400, err.Error())
 		return
-	}
-	// Resolve submitted virtual rules against the original configured roots
-	// before pruning removed paths. Validate the whole change before writing.
-	if payload.Permissions != nil {
-		priorConfig.Permissions = *payload.Permissions
-		priorPolicy, err = prepareAccess(priorConfig, priorRoots)
-		if err != nil {
-			writeError(w, 400, err.Error())
-			return
-		}
 	}
 	updated, err := patchDirectoryConfig(data, paths)
 	if err != nil {
@@ -296,7 +296,7 @@ func (a *application) directories(w http.ResponseWriter, r *http.Request) {
 				fileError(w, err)
 				return
 			}
-			resolved, err := filepath.EvalSymlinks(normalized[0])
+			resolved, err := resolveFilesystemPath(normalized[0])
 			if err != nil {
 				fileError(w, err)
 				return
@@ -329,14 +329,9 @@ func (a *application) directories(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 500, "更新路径名称失败")
 		return
 	}
-	// Removing a configured path also removes its obsolete permission rules.
-	cfg.Permissions.Default = priorPolicy.Permissions.Default
-	cfg.Permissions.Rules = []pathPermission{}
-	for _, rule := range priorPolicy.Permissions.Rules {
-		if withinDirectories(rule.Path, roots) {
-			cfg.Permissions.Rules = append(cfg.Permissions.Rules, rule)
-		}
-	}
+	// Validate permissions against the replacement roots, after removing rules
+	// belonging to removed roots. Do not stat a removed/unavailable old path.
+	cfg.Permissions = permissions
 	policy, err := prepareAccess(cfg, roots)
 	if err != nil {
 		writeError(w, 400, err.Error())
@@ -679,4 +674,57 @@ func (a *application) documentCandidate(value string, markdownOnly bool) (string
 		return root.Path, root, nil
 	}
 	return filepath.Join(root.Path, filepath.FromSlash(value)), root, nil
+}
+
+// Resolve virtual IDs against the old roots before pruning obsolete rules.
+// A removed root need not still exist on disk in order to remove its rules.
+func retainedDirectoryPermissions(permissions permissionConfig, previous, next []documentRoot, configPath string) (permissionConfig, error) {
+	result := permissionConfig{Default: permissions.Default, Rules: []pathPermission{}}
+	if !validAccess(result.Default) || len(permissions.Rules) > 10000 {
+		return result, errors.New("权限默认值无效或规则超过 10000 条")
+	}
+	for _, rule := range permissions.Rules {
+		if !validAccess(rule.Access) || strings.TrimSpace(rule.Path) == "" {
+			return result, errors.New("权限路径或访问级别无效")
+		}
+		candidate := rule.Path
+		if strings.HasPrefix(candidate, "@") {
+			parts := strings.SplitN(candidate, "/", 2)
+			candidate = ""
+			for _, root := range previous {
+				if root.ID != parts[0] {
+					continue
+				}
+				candidate = root.Path
+				if len(parts) == 2 && parts[1] != "" && parts[1] != "." {
+					rel := parts[1]
+					if !filepath.IsLocal(filepath.FromSlash(rel)) || strings.ContainsAny(rel, `\:`) {
+						return result, errOutsideDirectories
+					}
+					if root.IsFile {
+						if rel != filepath.Base(root.Path) {
+							return result, errOutsideDirectories
+						}
+					} else {
+						candidate = filepath.Join(root.Path, filepath.FromSlash(rel))
+					}
+				}
+				break
+			}
+			if candidate == "" {
+				return result, errOutsideDirectories
+			}
+		} else if !filepath.IsAbs(candidate) {
+			candidate = filepath.Join(filepath.Dir(configPath), candidate)
+		}
+		resolved, err := permissionTarget(candidate, configPath, next)
+		if err != nil {
+			if withinDirectories(candidate, previous) && !withinDirectories(candidate, next) {
+				continue
+			}
+			return result, err
+		}
+		result.Rules = append(result.Rules, pathPermission{Path: resolved, Access: rule.Access})
+	}
+	return result, nil
 }

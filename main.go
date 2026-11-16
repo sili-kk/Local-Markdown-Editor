@@ -177,6 +177,7 @@ func (a *application) routes() http.Handler {
 	mux.HandleFunc("/api/files", a.files)
 	mux.HandleFunc("/api/search", a.search)
 	mux.HandleFunc("/api/directories", a.directories)
+	mux.HandleFunc("/api/directories/browse", a.browseDirectories)
 	mux.HandleFunc("/api/permissions", a.permissions)
 	mux.HandleFunc("/api/file", a.file)
 	mux.HandleFunc("/api/documents", a.manageDocuments)

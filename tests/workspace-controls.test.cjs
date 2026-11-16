@@ -200,6 +200,7 @@ function pathsFixture({ mismatch = false, flush = true, failSave = false, hooks 
   const f = environment({ state, flush: async () => flush, displayLibraryPath: value => value, syncFileOperationButtons() {}, drawFiles() {}, notice() {}, navigate: async (...args) => hooks.navigate ? hooks.navigate(...args) : true,
     api: async (url, options) => {
       if (options?.method === 'PUT') { requests.push({ url, body: JSON.parse(options.body) }); if (failSave) throw Object.assign(Error('配置已变化'), { status: 409 }); return hooks.save ? hooks.save() : { config_revision: 'new' }; }
+      if (url.startsWith('/api/directories/browse?') && hooks.browse) return hooks.browse(url);
       if (url === '/api/directories') return { directories: [{ id: '@root', path: 'D:/notes', name: '手稿' }], config_revision: 'same' };
       if (url === '/api/permissions') return { default: 'r', rules: [{ path: '@root', access: 'r' }], targets: [{ path: '@root', kind: 'directory' }], config_revision: mismatch ? 'other' : 'same' };
       return hooks.list ? hooks.list() : { files: state.files };
@@ -460,4 +461,46 @@ test('不同目录的同名文件各有页签，读取或保存失败时不误�
     assert.equal(failed.state.path, 'b.md'); assert.equal(failed.body, 'draft');
     assert.deepEqual(failed.$('documentHistoryList').children.map(item => item.dataset.path), ['a.md', 'b.md']);
   }
+});
+
+
+test('路径行在移除前显示选择，选择文件回填地址且保留自定义名称，取消不修改', async () => {
+  const f = pathsFixture({ hooks: { browse: () => ({ path: 'D:/notes', parent: 'D:/', selected: 'D:/notes', entries: [
+    { name: '新文档.md', path: 'D:/notes/新文档.md', directory: false },
+  ] }) } });
+  f.load('path-picker.js'); await f.context.loadPathForm();
+  const row = f.$('pathsList').children[0];
+  assert.equal(row.children[2].textContent, '选择'); assert.equal(row.children[3].textContent, '移除');
+  assert.equal(row.children[2].type, 'button');
+  await row.children[2].onclick();
+  assert.equal(f.$('pathPickerDialog').open, true);
+  f.$('pathPickerList').children[0].onclick(); f.context.usePickerPath();
+  assert.equal(row.children[1].value, 'D:/notes/新文档.md'); assert.equal(row.children[0].value, '手稿');
+  assert.equal(f.$('pathPickerDialog').open, false); assert.equal(f.requests.length, 0, 'picking does not save configuration');
+  row.children[0].value = '';
+  await row.children[2].onclick(); f.context.usePickerPath();
+  assert.equal(row.children[0].value, 'notes');
+  await row.children[2].onclick(); f.$('pathPickerList').children[0].onclick(); f.context.closePathPicker();
+  assert.equal(row.children[1].value, 'D:/notes');
+});
+
+test('路径浏览忽略过期和关闭后的响应，失败不能确认，旧路径失效时回到配置目录', async () => {
+  let complete;
+  const f = pathsFixture({ hooks: { browse: url => {
+    if (url.endsWith('old')) return new Promise(resolve => { complete = resolve; });
+    if (url.endsWith('missing')) throw Error('路径不存在');
+    return { path: 'D:/new', parent: 'D:/', selected: 'D:/new', entries: [] };
+  } } });
+  f.load('path-picker.js'); await f.context.loadPathForm();
+  const row = f.$('pathsList').children[0]; row.children[1].value = 'old';
+  const opening = row.children[2].onclick();
+  await f.context.browsePickerPath('new');
+  complete({ path: 'D:/old', parent: 'D:/', selected: 'D:/old', entries: [] }); await opening;
+  assert.equal(f.$('pathPickerSelection').textContent, 'D:/new');
+  row.children[1].value = 'missing'; f.context.closePathPicker(); await row.children[2].onclick();
+  assert.match(f.$('pathPickerMessage').textContent, /原路径无法打开/); assert.equal(f.$('pathPickerSelection').textContent, 'D:/new');
+  await f.context.browsePickerPath('missing'); assert.equal(f.$('pathPickerUse').disabled, true);
+  const pending = f.context.browsePickerPath('old'); f.context.closePathPicker();
+  complete({ path: 'D:/old', parent: '', selected: 'D:/old', entries: [] }); await pending;
+  f.context.usePickerPath(); assert.equal(row.children[1].value, 'missing');
 });

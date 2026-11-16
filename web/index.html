@@ -159,6 +159,15 @@
       <div class="paths-actions"><button class="button" id="pathsReload" type="button">重新读取</button><button class="button" id="pathsCancel" type="button">取消</button><button class="button primary" id="pathsSave" type="submit" disabled>保存并加载</button></div>
     </form>
   </dialog>
+  <dialog id="pathPickerDialog" aria-labelledby="pathPickerTitle" aria-describedby="pathPickerDescription">
+    <div class="paths-heading"><h2 id="pathPickerTitle">选择路径</h2><p id="pathPickerDescription">浏览服务器上的文件夹或 Markdown 文件，选择后点击“保存并加载”生效。</p></div>
+    <form id="pathPickerForm" class="path-picker-address"><label for="pathPickerAddress">当前位置</label><div><input id="pathPickerAddress" type="text" autocomplete="off" spellcheck="false"><button class="button" id="pathPickerGo" type="submit">前往</button></div></form>
+    <div class="path-picker-navigation"><button class="button" id="pathPickerUp" type="button">上一级</button><button class="button" id="pathPickerRoots" type="button">磁盘 / 根目录</button></div>
+    <div id="pathPickerList" aria-label="文件夹与 Markdown 文件"></div>
+    <p id="pathPickerMessage" role="status" aria-live="polite"></p>
+    <p class="path-picker-selection">已选路径：<span id="pathPickerSelection">尚未选择</span></p>
+    <div class="paths-actions"><button class="button" id="pathPickerCancel" type="button">取消</button><button class="button primary" id="pathPickerUse" type="button" disabled>使用此路径</button></div>
+  </dialog>
   <dialog id="mergeDialog" aria-labelledby="mergeTitle" aria-describedby="mergeDescription">
     <div class="merge-heading"><h2 id="mergeTitle">合并文档修改</h2><p id="mergeDescription">本地文件也有更新。不同位置的修改会自动合并，请选择以下重叠内容的保留方式。</p></div>
     <div id="mergeConflicts"></div>
@@ -177,6 +186,7 @@
   <script src="/static/editor-search.js"></script>
   <script src="/static/inline-code-links.js"></script>
   <script src="/static/merge.js"></script>
+  <script src="/static/path-picker.js"></script>
   <script src="/static/directories.js"></script>
   <script src="/static/permissions.js"></script>
   <script src="/static/file-operations.js"></script>

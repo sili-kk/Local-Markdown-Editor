@@ -479,3 +479,16 @@ nav .empty { padding: 40px 10px; font-size: 12px; }
 /* URL-only inline code stays monospace while exposing link interaction. */
 .inline-code-link { color: var(--theme-accent, #4f8051); cursor: pointer; text-decoration: underline; text-underline-offset: 4px; }
 .inline-code-link:focus-visible { outline: 2px solid var(--theme-focus, #709c7c); outline-offset: 3px; border-radius: 3px; }
+
+#pathPickerDialog { width: min(700px, calc(100vw - 32px)); max-height: calc(100dvh - 40px); overflow: auto; padding: 0; border: 1px solid var(--line); border-radius: 16px; color: var(--ink); background: var(--theme-surface, #fff); box-shadow: 0 24px 80px #1c352938; }
+#pathPickerDialog::backdrop { background: #1d302a66; backdrop-filter: blur(3px); }
+.path-picker-address, .path-picker-navigation, .path-picker-selection { margin: 12px 24px; font-size: 13px; }
+.path-picker-address > div, .path-picker-navigation { display: flex; gap: 8px; }
+.path-picker-address label { display: block; margin-bottom: 8px; }
+#pathPickerAddress { flex: 1; min-width: 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: var(--theme-page, #f9faf7); }
+#pathPickerList { display: flex; flex-direction: column; gap: 5px; min-height: 90px; max-height: 36dvh; overflow: auto; margin: 12px 24px; }
+#pathPickerList .button { flex: 0 0 auto; justify-content: flex-start; text-align: left; overflow-wrap: anywhere; white-space: normal; }
+#pathPickerList [aria-pressed=true] { border-color: var(--accent); background: var(--theme-soft, #f4f7ef); }
+#pathPickerMessage { margin: 12px 24px; color: var(--theme-warning, #8e692e); font-size: 13px; }
+.path-picker-selection { overflow-wrap: anywhere; }
+.path-row > button { flex-shrink: 0; }

@@ -98,6 +98,10 @@ function addPathRow(value = '', focus = true, name = '') {
   input.placeholder = '例如 D:/notes 或 ./docs/note.md';
   input.setAttribute('aria-label', '目录或 Markdown 文件路径');
   input.autocomplete = 'off'; input.spellcheck = false;
+  const choose = document.createElement('button');
+  choose.className = 'button path-choose'; choose.type = 'button'; choose.textContent = '选择';
+  choose.setAttribute('aria-label', '选择目录或 Markdown 文件路径');
+  choose.onclick = () => openPathPicker(input, label);
   const remove = document.createElement('button');
   remove.className = 'button'; remove.type = 'button'; remove.textContent = '移除';
   remove.onclick = () => {
@@ -105,7 +109,7 @@ function addPathRow(value = '', focus = true, name = '') {
     if (!$('pathsList').children.length) addPathRow();
     else $('pathsAdd').focus();
   };
-  row.append(label, input, remove);
+  row.append(label, input, choose, remove);
   $('pathsList').append(row);
   if (focus) label.focus();
 }
